@@ -1,0 +1,16 @@
+// moonsting engine: the fuzzing loop itself.
+//
+// Deliberately synchronous and allocation-light: one target call, one oracle
+// check, one novelty check, repeat. Everything that can be precomputed (the
+// splice pool, the seed corpus) is, because at ~10^5 executions the constant
+// factor is the whole ballgame.
+import {
+  "moonsting/core",
+  "moonsting/mutate",
+  "moonsting/corpus",
+  "moonsting/cov",
+  "moonsting/shrink",
+  "moonsting/targets",
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+}

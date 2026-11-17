@@ -1,0 +1,5 @@
+// moonsting core: data model, PRNG, byte utilities.
+//
+// No file system, no processes, no backend-specific code. Everything in this
+// package compiles and runs on wasm-gc, js and native alike, which is what
+// makes the engine testable in CI on every target.

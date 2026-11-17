@@ -1,0 +1,4 @@
+// moonsting shrink: delta debugging.
+import {
+  "moonsting/core",
+}

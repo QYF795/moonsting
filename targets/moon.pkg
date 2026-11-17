@@ -1,0 +1,9 @@
+// moonsting targets: the demo corpus shipped with the CLI.
+//
+// Two of these are ordinary parsers (JSON, CSV) with hand-written seeds; the
+// third is a *differential pair* of varint decoders where one implementation
+// is subtly wrong. The pair exists so the differential oracle can be
+// demonstrated end-to-end without depending on any external package.
+import {
+  "moonsting/core",
+}

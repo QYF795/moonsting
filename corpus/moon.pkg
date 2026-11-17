@@ -1,0 +1,6 @@
+// moonsting corpus: the set of inputs the fuzzer keeps feeding back into
+// mutation. A corpus is not a "collection of test cases"; it is a *diet*.
+// Keeping it small and diverse is what makes progress visible.
+import {
+  "moonsting/core",
+}

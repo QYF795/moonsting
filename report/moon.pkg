@@ -1,0 +1,11 @@
+// moonsting reporters: everything a human (or an agent) reads afterwards.
+//
+// Three formats, one source of truth:
+//   text  — the terminal summary printed at the end of a run
+//   jsonl — one object per finding, for CI and for cross-backend diffing
+//   html  — a self-contained page, no assets, no network
+// plus a generator that turns a finding into a MoonBit regression test.
+import {
+  "moonsting/core",
+  "moonsting/engine",
+}

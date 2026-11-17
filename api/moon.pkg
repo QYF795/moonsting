@@ -1,0 +1,12 @@
+// moonsting api: the programmatic entry point.
+//
+// `cli` is argument parsing and nothing else; this package is what an embedder
+// (a CI job, a test harness, an agent tool) should depend on. Keeping it
+// separate also means the end-to-end tests have a non-main home, which the
+// toolchain requires for blackbox tests.
+import {
+  "moonsting/core",
+  "moonsting/engine",
+  "moonsting/report",
+  "moonsting/targets",
+}
