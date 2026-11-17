@@ -38,6 +38,7 @@ findings : 3
 | finding 按"形状"去重（避免同一 bug 报十六次） | ✅ |
 | 报告：text / jsonl / 自包含 html / 回归测试生成 | ✅ |
 | 语料导出（`--dump-corpus`）与续跑（`--seed-input`） | ✅ |
+| CI 钩子 `--fail-on-finding`（有 finding 则非零退出） | ✅ |
 | CLI：`run` / `list` / `replay` / `minimize` | ✅ |
 | 同 seed 跨后端逐字节一致（wasm-gc vs js） | ✅ 已验证 |
 | 覆盖率产物解析（`cov/EdgeSet` + 测试） | ✅ 已实现，未接线到引擎 |
@@ -70,13 +71,14 @@ moon run cli --target wasm-gc -- list
 
 参数：`--target` `--seed` `--max-execs` `--time 5s` `--max-input` `--max-findings` `--seed-input`（可重复）`--json` `--html` `--emit-test` `--dump-corpus` `--quiet`。
 
-## 三种 oracle
+## 四种 oracle
 
 | target | oracle | 判据 | 能发现什么 |
 |---|---|---|---|
 | `json` | `json.ws-invariance` | 前后空白不得改变"接受/拒绝" | 解析器的边界处理错误 |
 | `csv` | `same` | 什么都不判 | 崩溃与 hang（smoke 阶段用） |
 | `varint` | `diff(varint.fast, varint.ref)` | 两个实现必须给出同一个值 | **不崩、不报错、结果错** |
+| `decimal` | `decimal.roundtrip` | target 自己给出诊断，oracle 拒绝 `roundtrip:` 开头的结果 | 解析/格式化互相矛盾、溢出 |
 
 自定义 target 只需要一个 `(Bytes) -> String`：
 

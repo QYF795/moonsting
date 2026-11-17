@@ -62,8 +62,21 @@ fn varint_case() -> Case {
 }
 
 ///|
+fn decimal_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"-1.23", b"1.23", b"0.00", b"12.5", b"0.01", b"-99.99", b"1234.56",
+  ]
+  let target = @core.Target::new("decimal.money", seeds, decimal_check)
+  Case::new(
+    "decimal",
+    target,
+    @core.Oracle::Custom("decimal.roundtrip", decimal_roundtrip_holds),
+  )
+}
+
+///|
 pub fn catalog() -> Array[Case] {
-  [json_case(), csv_case(), varint_case()]
+  [json_case(), csv_case(), varint_case(), decimal_case()]
 }
 
 ///|

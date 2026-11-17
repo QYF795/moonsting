@@ -29,7 +29,23 @@ moon run cli --target wasm-gc -- minimize --target varint --hex 92ffffff0f000102
 
 `replay` 会独立复算一次（不依赖 session 状态），`minimize` 会把任意一个反例缩到最小。
 
-## 2. 没有被"发现"的，同样重要
+## 2. 第二个演示用例：自检 target 抓到的溢出
+
+`targets/decimal.mbt` 走"自检 target"路线：body 自己算 `parse → format → parse`，把不一致写成 `roundtrip:` 开头的诊断，oracle 只有一行——拒绝这种诊断。
+
+```
+$ moon run cli --target wasm-gc -- run --target decimal --seed 1 --max-execs 20000
+
+target   : decimal  (oracle: decimal.roundtrip)
+execs    : 20000 in 107 ms  (186915 exec/s)
+findings : 1
+  [violation] decimal  input=3432393439363732 (8B)
+        roundtrip:rejected:-0.96
+```
+
+`3432393439363732` 就是 ASCII `42949672`：解析后 `units * 100 = 4294967200`，在 32 位 `Int` 上溢出成 `-96`；格式化得到 `-0.96`；而解析器有一条"负数整数部分不能为 0"的规则，于是拒绝。**两条各自看起来都合理的规则，在溢出这条路径上互相矛盾** —— 这正是 round-trip 这类性质能自动发现、而手写用例几乎想不到的东西。
+
+## 3. 没有被"发现"的，同样重要
 
 | target | oracle | 执行数 | finding | 结论 |
 |---|---|---|---|---|
@@ -38,7 +54,7 @@ moon run cli --target wasm-gc -- minimize --target varint --hex 92ffffff0f000102
 
 这一栏是刻意的：一个 fuzzer 只在"确实有 bug"时才报警，比一个天天报警的 fuzzer 有用得多。早期版本曾在这里报出 9 条"violation"，全部是**我自己 oracle 的假阳性**——我最初比较的是完整输出字符串，而错误信息里带位置（`@0` → `@1`），追加空格当然会变。修正为只比较"接受/拒绝"后归零。这个教训写进了 `DEVLOG.md`。
 
-## 3. 性能
+## 4. 性能
 
 | target | 后端 | 执行数 | 耗时 | 吞吐 |
 |---|---|---|---|---|
@@ -54,7 +70,7 @@ moon run cli --target wasm-gc -- minimize --target varint --hex 92ffffff0f000102
 - js 后端约慢 3.2 倍，属于预期（wasm-gc 有 AOT 与更紧凑的对象布局）；
 - 这些数字里**没有**进程启动开销——v0.1 是进程内直调，进程池落地后吞吐会下降一档（预计 3–5 万 exec/s），这是拿崩溃隔离必须付的价钱。
 
-## 4. 确定性：跨后端逐字节一致
+## 5. 确定性：跨后端逐字节一致
 
 同 seed、同执行数，两个后端产出的 JSONL **逐字节相同**（包括 finding 的 exec 序号）：
 
@@ -72,7 +88,7 @@ $ diff a.jsonl b.jsonl     # 无输出
 
 为什么这很重要：跨后端差分的工作流要求"同一个 seed 在两个后端跑出同一批输入"，否则 diff 出来的全是噪声。v0.1 证明了这条前提成立——`moon run --json` + `diff` 就是可用的跨后端差分，不需要新代码。
 
-## 5. 测试
+## 6. 测试
 
 ```
 $ moon test --target wasm-gc

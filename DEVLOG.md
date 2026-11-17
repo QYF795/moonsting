@@ -87,6 +87,7 @@
 - `core.trim_end`：报告字符串自带换行，`println` 又加一个，输出里出现过空行
 - `script/set-user.sh`：发布前把模块名一次性改成 `<用户名>/moonsting`
 - `LICENSE` / `.gitignore` / git 初始化 + 首个提交
+- 追加：`decimal` 自检 target（第四种 oracle 风格：body 自己给诊断，oracle 只拒绝 `roundtrip:`）、`--fail-on-finding`（有 finding 就非零退出，给 CI 用）；测试 48 → 53
 
 **AI 产出与错误**
 | AI 生成了什么 | 错在哪 | 怎么发现的 | 最终怎么改 |
