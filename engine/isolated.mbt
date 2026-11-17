@@ -14,15 +14,16 @@ pub fn run_isolated(
   jobs : Int32,
   exe : String,
   shrink : Bool,
+  seeds : Array[Bytes],
 ) -> Session {
   if !@proc.supported() || exe.length() == 0 {
     // No OS access on this backend: fall back rather than pretending.
-    return run_with(case, config, [])
+    return run_with(case, config, seeds)
   }
   let session = make(case, config)
   session.exe_ = exe
   session.shrink_ = shrink
-  session.prime([])
+  session.prime(seeds)
   session.drive_isolated(
     exe,
     if batch_size > 0 {

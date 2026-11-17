@@ -113,7 +113,13 @@ fn help() -> String {
     "               [--max-input N] [--max-findings N] [--seed-input HEX]...\n",
   )
   sb.write_string(
-    "               [--jobs N] [--json] [--html] [--emit-test] [--dump-corpus] [--fail-on-finding]\n",
+    "               [--jobs N] [--corpus-dir DIR] [--corpus-max N]\n",
+  )
+  sb.write_string(
+    "               [--json] [--html] [--emit-test] [--dump-corpus]\n",
+  )
+  sb.write_string(
+    "               [--fail-on-finding] [--no-shrink] [--batch-size N]\n",
   )
   sb.write_string("  moonsting list\n")
   sb.write_string("  moonsting replay --target NAME --hex HEX\n")
@@ -203,6 +209,16 @@ fn cmd_run(args : Array[String], exe : String) -> Unit {
         .with_max_findings(int_flag(args, "--max-findings", 16))
         .with_time_budget_ms(time_flag(args))
         .with_quiet(has_flag(args, "--quiet"))
+      let corpus_dir = match flag_value(args, "--corpus-dir") {
+        Some(d) => d
+        None => ""
+      }
+      let loaded = if corpus_dir.length() > 0 {
+        @engine.load_corpus(corpus_dir, int_flag(args, "--corpus-max", 4096))
+      } else {
+        []
+      }
+      let seeds = @engine.concat_seeds(loaded, hex_seeds(args))
       let session = if has_flag(args, "--isolate") {
         @engine.run_isolated(
           case,
@@ -211,9 +227,10 @@ fn cmd_run(args : Array[String], exe : String) -> Unit {
           int_flag(args, "--jobs", 1),
           exe,
           !has_flag(args, "--no-shrink"),
+          seeds,
         )
       } else {
-        @engine.run_with(case, config, hex_seeds(args))
+        @engine.run_with(case, config, seeds)
       }
       if has_flag(args, "--json") {
         println(@report.jsonl(session))
@@ -229,6 +246,16 @@ fn cmd_run(args : Array[String], exe : String) -> Unit {
         }
         if has_flag(args, "--dump-corpus") {
           println(@report.corpus_dump(session))
+        }
+        if corpus_dir.length() > 0 {
+          let written = @engine.save_corpus(
+            session,
+            corpus_dir,
+            int_flag(args, "--corpus-max", 4096),
+          )
+          println(
+            "corpus   -> " + corpus_dir + " (" + written.to_string() + " files)",
+          )
         }
       }
       // CI hook: a fuzzer that always exits 0 is useless in a pipeline.

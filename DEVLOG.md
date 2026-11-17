@@ -262,6 +262,37 @@
 - `--corpus-dir` 持久化（现在只能 `--dump-corpus` 手工续跑）
 - 插桩覆盖率报告：把"哪些 id 一次都没命中"打出来，反过来指导 target 的插桩点
 
+---
+
+### D8 · 11/17 深夜 · 语料落盘：没有 readdir 就用编号
+
+**今日目标**
+- 让长跑能中断续跑：`--corpus-dir DIR`
+
+**实际完成**
+- `proc/dir.mbt`：`make_dir`（一次 shell 调用）、`file_present`
+- `engine/corpus_io.mbt`：`corpus_file`（`corpus-0001.hex` 零填充）、`load_corpus`（按编号探测，遇缺口停）、`save_corpus`（按编号重写）、`concat_seeds`（去重合并）
+- `--corpus-dir` / `--corpus-max` 接进 CLI，`--isolate` 与进程内两条路径都吃到（`run_isolated` 增加 seeds 参数）
+- 实测：第一次 4,000 次执行 → 90 个文件；第二次加载 90 条、只新增 3 条签名 → 93 个文件。语料单调长
+- 测试 72 → 77（native）
+
+**AI 产出与错误**
+| AI 生成了什么 | 错在哪 | 怎么发现的 | 最终怎么改 |
+|---|---|---|---|
+| 想给 `proc` 加 `readdir`（FindFirstFileA + opendir 两套） | 一个功能要写两份平台代码，还得解释 `struct dirent` 的内存布局 | 动手前先算成本 | 换成"编号 + 探测到缺口"，零新 FFI，三后端一致 |
+| `save_corpus(session : @engine.Session, …)` 写在 engine 包内 | 包内不能用自己的别名引用自己 | 编译错误 | 改成 `Session` |
+| 把 `concat_seeds` 放在 cli 包 | 想给 CLI 加测试，发现主包的 blackbox 测试已被标记为要弃用 | 编译警告（之前见过一次） | 挪进 engine（它本来就是语料逻辑），测试放 engine 的黑盒测试里 |
+| 用 `Get-Content`/字符串替换改 README 的表格 | 又把非 ASCII 读成乱码 / 拼出损坏的字符串字面量 | 一眼看到 `\n",` 出现在源码里 | 文档用编辑工具改，源码优先整段重写而不是替换片段 |
+
+**关键决策**
+- **编号而不是哈希命名**：哈希命名需要 readdir 才能枚举，编号命名只需要"下一个叫什么"。同一个功能，少一套平台绑定。
+- **遇缺口截断、写入不收缩**：让文件布局可手工修复，也让语料单调增长。
+- `--corpus-max` 是硬需求而不是优化：编号方案下语料上限 = 文件数上限。
+
+**明天**
+- 插桩覆盖率报告（哪些 id 从未命中）
+- 把 `--corpus-dir` 加进验收材料里的"可复现"演示：同一目录跑两次，第二次的 novelty 明显下降，这本身就是反馈在起作用的证据
+
 
 
 

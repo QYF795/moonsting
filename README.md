@@ -46,7 +46,7 @@ findings : 3
 | 编译器覆盖率产物（`cov/EdgeSet`）接进引擎 | ❌ 见架构文档：普通二进制不落盘 |
 | 进程隔离（`--isolate`，native）：批次 worker + 崩溃输入定位 | ✅ |
 | 隔离模式下的批量最小化（一轮 ddmin = 一次 worker，`--no-shrink` 可关） | ✅ |
-| 语料持久化（`--corpus-dir`） | ❌ 需要文件系统 API |
+| 语料持久化（`--corpus-dir`，编号文件，无需 readdir） | ✅ |
 | 并行 `--jobs N`（一次起 N 个 worker） | ✅ |
 
 ## 用法
@@ -67,6 +67,10 @@ moon run cli --target wasm-gc -- minimize --target varint --hex 92ffffff0f000102
 # 语料导出 / 续跑（不需要文件系统 API）
 moon run cli --target wasm-gc -- run --target json --max-execs 20000 --dump-corpus > corpus.txt
 moon run cli --target wasm-gc -- run --target json --seed-input 612c620a --seed-input 7b7d
+
+# 持久化语料：跑完写回，下次自动加载（native）
+moon run cli --target native -- run --target csv --max-execs 200000 --corpus-dir .corpus
+moon run cli --target native -- run --target csv --max-execs 200000 --corpus-dir .corpus   # 接着上次
 
 # 列目标
 moon run cli --target wasm-gc -- list
@@ -201,10 +205,10 @@ cli/       参数解析
 
 ## 限制与下一步
 
-1. **并行 `--jobs`**：现在每批串行起一个子进程，单核；还没做同时起 N 个。
-2. **覆盖率接线**（P1）：在 `moon test --enable-coverage` 下驱动 fuzz，把 `EdgeSet` 的增量作为语料准入，替换形状反馈。
-3. **语料持久化**（P1）：`--corpus-dir`，让长跑可以中断续跑。
-4. **覆盖率接线**（P1）：`cov/EdgeSet` 已实现，还没接进 engine 替换形状反馈。
+1. **插桩是手动的**：没有自动插桩，写 target 的人要自己在分支上放 `@cov.hit(id)`。没放就静默回退到形状反馈——能跑，但弱。
+2. **语料目录遇缺口截断**：`corpus-0007.hex` 缺失时只加载 1–6。好处是文件布局可以手工修（删尾巴、留前缀），代价是不能有洞。
+3. **没有"哪些 id 从未命中"的报告**：插桩覆盖率本可以反过来指导插桩点，这一层还没做。
+4. **并行是亚线性的**：`--jobs` 要配 `--batch-size`，组合表见上；单 job 时仍是单核。
 5. **更多 target**（P2）：把生态里测试薄的解析器（ARFF / protobuf / parquet 编码）接成 case。
 
 ## 命名与发布
