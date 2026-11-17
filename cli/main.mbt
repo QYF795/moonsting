@@ -113,7 +113,7 @@ fn help() -> String {
     "               [--max-input N] [--max-findings N] [--seed-input HEX]...\n",
   )
   sb.write_string(
-    "               [--json] [--html] [--emit-test] [--dump-corpus] [--fail-on-finding]\n",
+    "               [--jobs N] [--json] [--html] [--emit-test] [--dump-corpus] [--fail-on-finding]\n",
   )
   sb.write_string("  moonsting list\n")
   sb.write_string("  moonsting replay --target NAME --hex HEX\n")
@@ -208,6 +208,7 @@ fn cmd_run(args : Array[String], exe : String) -> Unit {
           case,
           config,
           int_flag(args, "--batch-size", 512),
+          int_flag(args, "--jobs", 1),
           exe,
           !has_flag(args, "--no-shrink"),
         )

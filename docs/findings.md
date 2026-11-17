@@ -85,6 +85,9 @@ findings : 1
 | `boom`（--isolate，每批可能崩） | native (debug) | 3,000 | 11,497 ms | 260 exec/s |
 | `varint`（--isolate --no-shrink） | native (debug) | 3,000 | 1,104 ms | 2,717 exec/s |
 | `varint`（--isolate，默认带 shrink） | native (debug) | 3,000 | 30,352 ms | 98 exec/s |
+| `varint`（--isolate --jobs 4，batch 512） | native (debug) | 20,000 | 5,143 ms | 3,888 exec/s |
+| `varint`（--isolate --jobs 8，batch 2048） | native (debug) | 20,000 | 2,710 ms | 7,380 exec/s |
+| `varint`（--isolate --jobs 8，batch 4096） | native (debug) | 20,000 | 2,399 ms | **8,336 exec/s** |
 | `varint` | js (node) | 5,000 | 123 ms | 40,650 exec/s |
 
 读法：

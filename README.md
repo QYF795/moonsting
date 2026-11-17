@@ -43,10 +43,9 @@ findings : 3
 | 同 seed 跨后端逐字节一致（wasm-gc / js / native） | ✅ 已验证 |
 | 覆盖率产物解析（`cov/EdgeSet` + 测试） | ✅ 已实现，未接线到引擎 |
 | 进程隔离（`--isolate`，native）：批次 worker + 崩溃输入定位 | ✅ |
-| 隔离模式下的批量最小化（一轮 ddmin = 一次 worker） | ✅ |
-| 崩溃/违例用例最小化（隔离模式下，按轮批量 probe） | ✅（`--no-shrink` 可关） |
+| 隔离模式下的批量最小化（一轮 ddmin = 一次 worker，`--no-shrink` 可关） | ✅ |
 | 语料持久化（`--corpus-dir`） | ❌ 需要文件系统 API |
-| 并行 `--jobs` | ❌ |
+| 并行 `--jobs N`（一次起 N 个 worker） | ✅ |
 
 ## 用法
 
@@ -136,6 +135,21 @@ findings : 1
 ```
 
 同一个种子、同一个 target，差 27 倍——差的是"每个 finding 二十轮 probe"。默认开，因为一条 5 字节的反例比一条 956 字节的反例有用得多；觉得慢就 `--no-shrink`。
+
+### 并行：`--jobs N`
+
+一轮 = N 个批次、N 个启动脚本、N 个 worker 同时跑，最后父进程统一收结果。没有共享内存协议：候选以文件出去，结果以文件回来；finding 去重仍在父进程按"形状"做。
+
+启动成本是主要开销，所以 `--batch-size` 要跟着 `--jobs` 一起调大：
+
+| 配置（20,000 次执行，`--no-shrink`） | 吞吐 |
+|---|---|
+| `--jobs 1`（串行） | 2,626 exec/s |
+| `--jobs 4 --batch-size 512` | 3,888 exec/s |
+| `--jobs 8 --batch-size 2048` | 7,380 exec/s |
+| `--jobs 8 --batch-size 4096` | **8,336 exec/s** |
+
+加速是亚线性的：每个 worker 启动约 60–200 ms，批次越小这笔固定成本占比越高。经验值 `--jobs 4 --batch-size 2048`。
 
 ## 性能（本机实测）
 

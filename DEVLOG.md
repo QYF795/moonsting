@@ -200,6 +200,38 @@
 - `--jobs N`：同时起 N 个 worker（Windows `start /b`、POSIX `&`），结果按形状合并
 - `cov/EdgeSet` 接进 engine，替换形状反馈
 
+---
+
+### D6 · 11/17 深夜 · `--jobs N`：并行不共享内存，只共享文件
+
+**今日目标**
+- 一次跑 N 个 worker，把隔离模式的吞吐拉回来
+
+**实际完成**
+- `proc/script.mbt`：为每个 job 生成启动脚本（跑 worker、无条件写 done 文件、把退出码写进去），`launch_many` 用**一条** shell 命令把 N 个脚本一起 start
+- `engine/parallel.mbt`：一轮 = N 个批次 + N 个脚本 + 轮询 done 文件 + 统一 absorb；轮内共享一个 exec 预算，避免 4 个 worker 各跑满一批把 `--max-execs` 冲爆
+- CLI `--jobs N`；推荐值写进 README（`--jobs 4 --batch-size 2048`）
+- 实测（20k 次执行、--no-shrink）：串行 2,626 / jobs4 3,888 / jobs8+batch2048 7,380 / jobs8+batch4096 **8,336 exec/s**
+- 测试 65 → 67（native）
+
+**AI 产出与错误**
+| AI 生成了什么 | 错在哪 | 怎么发现的 | 最终怎么改 |
+|---|---|---|---|
+| 启动脚本里写 `echo %ERRORLEVEL%> done` | cmd.exe 把 `0>` 解析成"重定向 handle 0"，**什么都不写**，于是每个 job 永远不"完成" | `--jobs 4` 卡满 120 秒；用一个只会写 done 的脚本单独测，三种启动形式全部"成功但没文件" | `>` 前加空格：`echo %ERRORLEVEL% > done`。这是 cmd 的重定向语法，不是我们的 bug |
+| 每个 job 单独 `system("start /b ...")` | 每次 ~57ms，4 个 job 光启动就 228ms，把并行收益吃光 | 测了 `start /b` 的返回耗时（57ms vs 脚本 1s，确实是后台），再对比 jobs=1/4 的吞吐 | 拼成一条 `start /b ... & start /b ...`，只付一次 cmd 启动 |
+| 对 `spawn_path` 的结果又调了一次 `shell_path` | 路径变成 `.\ .\_build\...`，子进程找不到 | 起不来且没有任何输出 | 只在一处做路径规范化 |
+| 每批都用 `max_execs - execs` 算预算 | 4 个 job 各自看到同样的剩余额度，20k 跑成 41k | 输出里 execs 超过上限 | 轮内用一个共享 budget 递减 |
+
+**关键决策**
+- 不共享内存：语料与调度留在父进程，候选/结果走文件。代价是 IO，收益是没有锁、没有跨进程内存布局约定（MoonBit 表达不了后者）。
+- done 文件而非等待进程：`start /b` 没有句柄，`system()` 阻塞。启动脚本无条件写 done（含崩溃），父进程只认文件出现。
+- 批次大小必须跟着 jobs 走：固定成本不变，批越大占比越低。所以 README 给的是"jobs + batch"的组合，而不是单个 jobs 数字。
+
+**明天**
+- `cov/EdgeSet` 接进 engine，替换形状反馈（README 里最后一个功能 ❌）
+- `--corpus-dir` 持久化：现在只能靠 `--dump-corpus` + `--seed-input` 手工续跑
+
+
 
 
 

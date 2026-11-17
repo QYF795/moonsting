@@ -11,6 +11,7 @@ pub fn run_isolated(
   case : @targets.Case,
   config : @core.Config,
   batch_size : Int32,
+  jobs : Int32,
   exe : String,
   shrink : Bool,
 ) -> Session {
@@ -22,7 +23,19 @@ pub fn run_isolated(
   session.exe_ = exe
   session.shrink_ = shrink
   session.prime([])
-  session.drive_isolated(exe, if batch_size > 0 { batch_size } else { 512 })
+  session.drive_isolated(
+    exe,
+    if batch_size > 0 {
+      batch_size
+    } else {
+      512
+    },
+    if jobs > 0 {
+      jobs
+    } else {
+      1
+    },
+  )
   session
 }
 
@@ -31,6 +44,7 @@ fn Session::drive_isolated(
   self : Session,
   exe : String,
   batch_size : Int32,
+  jobs : Int32,
 ) -> Unit {
   let started = @env.now()
   let budget = self.config_.time_budget_ms()
@@ -41,7 +55,11 @@ fn Session::drive_isolated(
     if budget > 0UL && @env.now() - started >= budget {
       halt = true
     } else {
-      self.run_batch(exe, batch_size)
+      if jobs > 1 {
+        self.run_round(exe, jobs, batch_size)
+      } else {
+        self.run_batch(exe, batch_size)
+      }
       self.batch_ = self.batch_ + 1
       if self.findings_.length() >= max_findings {
         halt = true
