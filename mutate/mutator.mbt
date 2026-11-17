@@ -48,7 +48,7 @@ fn Mutator::round(
   if roll < 40 {
     self.havoc(data)
   } else if roll < 62 {
-    self.structural(data)
+    self.structured(data)
   } else if roll < 78 {
     self.dict_insert(data)
   } else if roll < 90 {
@@ -72,5 +72,37 @@ fn Mutator::take_token(self : Mutator) -> Bytes {
     b""
   } else {
     tokens[self.rng_.below(tokens.length())]
+  }
+}
+
+///|
+/// Dispatch on the *shape* of the current input, not on the target. A mutator
+/// has no idea what it is feeding, so it looks at the bytes: JSON documents get
+/// token-level edits, base64 gets alphabet/padding edits, percent-encoded text
+/// gets escape edits, CSV keeps its existing quoting edits, and everything else
+/// gets the length-poke that length-prefixed formats hate.
+fn Mutator::structured(self : Mutator, data : Array[Byte]) -> Unit {
+  let current = @core.bytes_of(data)
+  match detect(current) {
+    Shape::Csv => self.csv_edit(data)
+    Shape::Json =>
+      self.apply(
+        data,
+        json_mutate(self.rng_, current, self.dict_, self.max_len_),
+      )
+    Shape::Base64 => self.apply(data, base64_mutate(self.rng_, current))
+    Shape::Urlenc => self.apply(data, urlenc_mutate(self.rng_, current))
+    Shape::Binary => self.apply(data, length_mutate(self.rng_, current))
+  }
+}
+
+///|
+/// Replace the buffer contents, respecting the length cap.
+fn Mutator::apply(self : Mutator, data : Array[Byte], next : Bytes) -> Unit {
+  truncate_to(data, 0)
+  let mut i = 0
+  while i < next.length() && data.length() < self.max_len_ {
+    data.push(next[i])
+    i = i + 1
   }
 }
