@@ -125,6 +125,8 @@ moon run cli --target wasm-gc -- list
 | `urlenc` | `urlenc.roundtrip` | 解码再编码必须还原输入 | 非规范编码（`%41`、小写 hex、字面量保留字符） |
 | `protobuf` | `protobuf.roundtrip` | 序列化(解析(x)) 必须逐字节等于 x | 非最小 varint、字段号 0、组类型、截断的长度 |
 | `rle` | `rle.roundtrip` | 同上，另加宽度纪律（5 bit 值、`groups*5` 字节） | 非最小头、计数 0、截断 payload、越界值 |
+| `csvstrict` | `csv.strict.roundtrip` | 序列化(解析(x)) 必须逐字节等于 x | 多余引号、CR、空尾行、越界引号 |
+| `arff` | `arff.comment-invariant` | 追加一行注释不得改变摘要 | 注释识别、行吞噬、属性数不匹配 |
 | `boom` | `same` | 什么都不判 | 演示崩溃隔离（遇 `0xDE` 自杀） |
 | `decimal` | `decimal.roundtrip` | target 自己给出诊断，oracle 拒绝 `roundtrip:` 开头的结果 | 解析/格式化互相矛盾、溢出 |
 

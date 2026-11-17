@@ -97,6 +97,8 @@ findings : 1
 | `urlenc` | roundtrip | 0 | 20 | 严格拒绝非规范编码（`%41`、小写 hex、字面量 `/`） |
 | `protobuf` | roundtrip | 0 | 163 | 非最小 varint、字段号 0、组类型、截断长度全部拒绝 |
 | `rle` | roundtrip | 0 | 32 | 宽度纪律（5 bit 值、`groups*5` 字节）单独校验 |
+| `csvstrict` | roundtrip | 0 | 51 | 严格：多余引号、CR、空尾行都拒绝 |
+| `arff` | comment-invariant | 0 | 41 | 注释不改变摘要（含行首/行中/行尾） |
 | `boom` | smoke + isolate | 1（crash） | — | 演示崩溃隔离 |
 
 `utf8` 这一行值得单独说：状态机版（数还欠几个续字节、收紧第一个续字节的上下界）和码点版（显式检查 overlong / 代理区 / U+10FFFF）在 5 万条随机输入上给出**完全相同**的判定与字符数。这不能证明它们没有 bug，但能证明"两个结构不同的实现互为 oracle"这件事是可操作的——而且它不需要写规范、只需要写两遍。

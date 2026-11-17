@@ -152,6 +152,33 @@ fn rle_case() -> Case {
 }
 
 ///|
+fn csv_strict_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"a,b\n1,2\n", b"\"a,b\",c\n", b"a\n", b"\"\"\"\"\n", b"x\n",
+  ]
+  let target = @core.Target::new("csv.strict", seeds, csv_strict_check)
+  Case::new(
+    "csvstrict",
+    target,
+    @core.Oracle::Custom("csv.strict.roundtrip", csv_strict_roundtrip_holds),
+  )
+}
+
+///|
+fn arff_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"@relation r\n@attribute a numeric\n@data\n1\n2\n", b"@relation r\n@attribute a {x,y}\n@data\nx\ny\n",
+    b"% c\n@relation r\n@attribute a numeric\n@data\n1\n",
+  ]
+  let target = @core.Target::new("arff.summary", seeds, arff_summary)
+  Case::new(
+    "arff",
+    target,
+    @core.Oracle::Custom("arff.comment-invariant", arff_comment_invariant),
+  )
+}
+
+///|
 pub fn catalog() -> Array[Case] {
   [
     json_case(),
@@ -164,6 +191,8 @@ pub fn catalog() -> Array[Case] {
     urlenc_case(),
     protobuf_case(),
     rle_case(),
+    csv_strict_case(),
+    arff_case(),
     boom_case(),
   ]
 }
