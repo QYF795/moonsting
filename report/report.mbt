@@ -240,3 +240,37 @@ pub fn html(session : @engine.Session) -> String {
   sb.write_string("</table></body></html>")
   sb.to_string()
 }
+
+///|
+/// What the instrumentation saw, and — more useful — what it never saw.
+///
+/// Ids are allocated in dense per-target ranges by convention (600s for base64,
+/// 700s for tlv, …), so a hole inside the observed span is a branch that no input
+/// reached. That is the number an instrumenter wants: it points at dead branches
+/// and at instrumentation that is unreachable by construction.
+pub fn coverage_report(ids : Array[Int32]) -> String {
+  if ids.length() == 0 {
+    return "coverage : none (target is not instrumented)"
+  }
+  let sorted = @cov.sorted_seen_from(ids)
+  let spans = @cov.ranges(sorted)
+  let holes = @cov.gaps(sorted)
+  let sb = StringBuilder()
+  sb.write_string(
+    "coverage : " +
+    sorted.length().to_string() +
+    " ids hit (" +
+    @cov.format_ranges(spans) +
+    ")\n",
+  )
+  if holes.length() == 0 {
+    sb.write_string("gaps     : none inside the observed span\n")
+  } else {
+    sb.write_string(
+      "gaps     : " +
+      @cov.format_ranges(holes) +
+      " (inside the observed span, never hit: either a branch nobody reached or an id range that was never assigned)\n",
+    )
+  }
+  sb.to_string()
+}

@@ -228,6 +228,7 @@ fn Session::run_batch_inproc(self : Session, batch : Array[Bytes]) -> Unit {
     } else {
       self.stats_.record_accept()
       let novel = if @cov.observed() > 0 {
+        ignore(@cov.commit())
         self.buckets_.observe(@cov.fingerprint())
       } else {
         self.buckets_.observe(@cov.signature(output, input.length()))

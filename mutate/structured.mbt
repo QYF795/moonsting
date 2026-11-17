@@ -259,27 +259,76 @@ pub fn json_mutate(
     let escaped = escape_into_quotes(token)
     replace_range(data, pick.start + 1, pick.end - 1, escaped)
   } else if roll < 8 {
-    // Duplicate a token (a value, or a field name in an object context).
-    if data.length() + (pick.end - pick.start) < max_len {
-      let out : Array[Byte] = []
-      splice(out, data, 0, pick.end)
-      out.push(b',')
-      splice(out, data, pick.start, pick.end)
-      splice(out, data, pick.end, data.length())
-      Bytes::from_array(out)
-    } else {
-      data
+    // Duplicate a whole member or element, not a bare token: `{"a":1}` becomes
+    // `{"a":1,"a":1}`, never `{"a":1,1}`.
+    match member_span(data, tokens, pick) {
+      None => data
+      Some(span) => {
+        let (from, to) = span
+        if data.length() + (to - from) + 1 < max_len {
+          let out : Array[Byte] = []
+          splice(out, data, 0, to)
+          out.push(b',')
+          splice(out, data, from, to)
+          splice(out, data, to, data.length())
+          Bytes::from_array(out)
+        } else {
+          data
+        }
+      }
     }
-    // Delete a token together with the separator that follows it.
-  } else if tokens.length() <= 1 {
+    // Delete a member: a value together with its key and one separator, so the
+    // document stays legal. Deleting only the value leaves `{"a":}` behind.
+  } else if tokens.length() <= 1 || pick.kind == 3 {
     data
   } else {
-    let mut end = pick.end
-    while end < data.length() && data[end].to_int() == 44 {
-      end = end + 1
+    let mut k = 0
+    while k < tokens.length() {
+      if tokens[k].start == pick.start && tokens[k].end == pick.end {
+        break
+      }
+      k = k + 1
     }
-    replace_range(data, pick.start, end, b"")
+    let mut start = pick.start
+    let mut end = pick.end
+    // `"key": value` — if the picked token is the value, include its key.
+    if k >= 2 && is_punct(data, tokens[k - 1], 58) && tokens[k - 2].kind == 0 {
+      start = tokens[k - 2].start
+    } else if k + 2 < tokens.length() && is_punct(data, tokens[k + 1], 58) {
+      // The picked token is the key: include the colon and the value.
+      end = tokens[k + 2].end
+    }
+    // Prefer eating the following comma.
+    let mut next = end
+    while next < data.length() && data[next].to_int() == 44 {
+      next = next + 1
+    }
+    if next > end {
+      end = next
+    } else {
+      // Last member: eat the preceding comma instead.
+      let mut back = start
+      while back > 0 && is_space(data[back - 1].to_int()) {
+        back = back - 1
+      }
+      if back > 0 && data[back - 1].to_int() == 44 {
+        start = back - 1
+      }
+    }
+    replace_range(data, start, end, b"")
   }
+}
+
+///|
+fn is_punct(data : Bytes, token : Token, ch : Int32) -> Bool {
+  token.kind == 3 &&
+  token.end == token.start + 1 &&
+  data[token.start].to_int() == ch
+}
+
+///|
+fn is_space(v : Int32) -> Bool {
+  v == 32 || v == 10 || v == 9 || v == 13
 }
 
 ///|
@@ -370,4 +419,32 @@ pub fn length_mutate(rng : @core.Rng, data : Bytes) -> Bytes {
     out[at] = ((v + 255) % 256).to_byte()
   }
   @core.bytes_of(out)
+}
+
+///|
+/// The byte range to duplicate for `pick`: the whole `"key": value` pair when
+/// the token is an object value or key, or the bare value when it is an array
+/// element. `None` when the token is punctuation or we cannot tell.
+fn member_span(
+  data : Bytes,
+  tokens : Array[Token],
+  pick : Token,
+) -> (Int32, Int32)? {
+  let mut k = 0
+  while k < tokens.length() {
+    if tokens[k].start == pick.start && tokens[k].end == pick.end {
+      break
+    }
+    k = k + 1
+  }
+  if k >= tokens.length() || pick.kind == 3 {
+    return None
+  }
+  if k >= 2 && is_punct(data, tokens[k - 1], 58) && tokens[k - 2].kind == 0 {
+    return Some((tokens[k - 2].start, pick.end))
+  }
+  if k + 2 < tokens.length() && is_punct(data, tokens[k + 1], 58) {
+    return Some((pick.start, tokens[k + 2].end))
+  }
+  Some((pick.start, pick.end))
 }

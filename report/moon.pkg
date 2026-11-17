@@ -7,5 +7,6 @@
 // plus a generator that turns a finding into a MoonBit regression test.
 import {
   "moonsting/core",
+  "moonsting/cov",
   "moonsting/engine",
 }

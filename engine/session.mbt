@@ -89,6 +89,12 @@ pub fn Session::bucket_count(self : Session) -> Int32 {
 }
 
 ///|
+/// Instrumentation ids hit so far. Empty when the target is not instrumented.
+pub fn Session::coverage_ids(_self : Session) -> Array[Int32] {
+  @cov.seen_ids()
+}
+
+///|
 pub fn Session::replay(self : Session, input : Bytes) -> String {
   let output = self.case_.target().run(input)
   self.case_.oracle().check(input, output)
@@ -178,6 +184,9 @@ fn Session::step(self : Session) -> Unit {
     // one reports nothing and gets the weaker shape-based signal instead. The
     // engine does not need to be told which kind it is looking at.
     let novel = if @cov.observed() > 0 {
+      // Keep the cumulative id set for `--cov-report`; the fingerprint decides
+      // novelty, the set only feeds the report.
+      ignore(@cov.commit())
       self.buckets_.observe(@cov.fingerprint())
     } else {
       self.buckets_.observe(@cov.signature(output, candidate.length()))

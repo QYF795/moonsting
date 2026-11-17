@@ -1,4 +1,6 @@
 ///|
+/// A structural validity check strict enough to notice `{"a":}`: balanced
+/// brackets and quotes, and no member or element left dangling.
 fn balanced(data : Bytes) -> Bool {
   let mut depth = 0
   let mut in_string = false
@@ -23,7 +25,34 @@ fn balanced(data : Bytes) -> Bool {
     }
     i = i + 1
   }
-  depth == 0 && !in_string
+  if depth != 0 || in_string {
+    return false
+  }
+  // A colon or a comma must be followed by something that can start a value.
+  let mut j = 0
+  while j < data.length() {
+    let v = data[j].to_int()
+    if v == 58 || v == 44 {
+      let mut k = j + 1
+      while k < data.length() {
+        let w = data[k].to_int()
+        if w == 32 || w == 9 || w == 10 || w == 13 {
+          k = k + 1
+        } else {
+          break
+        }
+      }
+      if k >= data.length() {
+        return false
+      }
+      let w = data[k].to_int()
+      if w == 44 || w == 125 || w == 93 {
+        return false
+      }
+    }
+    j = j + 1
+  }
+  true
 }
 
 ///|
@@ -61,7 +90,7 @@ test "structured: json mutations stay balanced most of the time" {
   }
   // Deleting a token can leave `{"a":}` behind, so this is not 100%; anything
   // near half would mean the mutator is not doing token-level work at all.
-  // Measured: 199/300 = 66%. Deleting a value can leave `{"a":}` behind.\n  assert_true(ok * 10 >= total * 6)
+  // Measured: 297/300 = 99%, up from 46% before members were duplicated as a\n  // unit and deletions took their key along.\n  assert_true(ok * 10 >= total * 9)
 }
 
 ///|

@@ -116,3 +116,114 @@ pub fn fingerprint() -> Int32 {
   acc = acc ^ (acc >> 13)
   (acc & 0x3fffffffU).reinterpret_as_int()
 }
+
+///|
+/// Every id hit since the last `clear_seen`, unsorted.
+pub fn seen_ids() -> Array[Int32] {
+  let out : Array[Int32] = []
+  let mut i = 0
+  while i < seen_.length() {
+    out.push(seen_[i])
+    i = i + 1
+  }
+  out
+}
+
+///|
+pub fn sorted_seen() -> Array[Int32] {
+  let out = seen_ids()
+  let mut i = 1
+  while i < out.length() {
+    let value = out[i]
+    let mut j = i
+    while j > 0 && out[j - 1] > value {
+      out[j] = out[j - 1]
+      j = j - 1
+    }
+    out[j] = value
+    i = i + 1
+  }
+  out
+}
+
+///|
+/// Compress a sorted id list into inclusive ranges of consecutive ids.
+pub fn ranges(ids : Array[Int32]) -> Array[(Int32, Int32)] {
+  let out : Array[(Int32, Int32)] = []
+  let mut i = 0
+  while i < ids.length() {
+    let start = ids[i]
+    let mut end = start
+    while i + 1 < ids.length() && ids[i + 1] == end + 1 {
+      end = ids[i + 1]
+      i = i + 1
+    }
+    out.push((start, end))
+    i = i + 1
+  }
+  out
+}
+
+///|
+/// Ids that were *declared* (they fall inside the span of ids that were hit) but
+/// never observed. This is the number that tells an instrumenter where the
+/// unreachable code is: ids are allocated in dense per-target ranges by
+/// convention, so a hole in the middle means a branch nobody reached.
+pub fn gaps(ids : Array[Int32]) -> Array[(Int32, Int32)] {
+  let compressed = ranges(ids)
+  let out : Array[(Int32, Int32)] = []
+  let mut i = 1
+  while i < compressed.length() {
+    let (_, prev_end) = compressed[i - 1]
+    let (next_start, _) = compressed[i]
+    if next_start > prev_end + 2 {
+      out.push((prev_end + 1, next_start - 1))
+    }
+    i = i + 1
+  }
+  out
+}
+
+///|
+/// Sort an arbitrary id array (the helper `sorted_seen` uses internally, exposed
+/// so range formatting can be tested without touching global state).
+pub fn sorted_seen_from(ids : Array[Int32]) -> Array[Int32] {
+  let out : Array[Int32] = []
+  let mut i = 0
+  while i < ids.length() {
+    out.push(ids[i])
+    i = i + 1
+  }
+  let mut a = 1
+  while a < out.length() {
+    let value = out[a]
+    let mut j = a
+    while j > 0 && out[j - 1] > value {
+      out[j] = out[j - 1]
+      j = j - 1
+    }
+    out[j] = value
+    a = a + 1
+  }
+  out
+}
+
+///|
+/// "600-601, 603" — the human form of a range list.
+pub fn format_ranges(ranges : Array[(Int32, Int32)]) -> String {
+  let sb = StringBuilder()
+  let mut i = 0
+  while i < ranges.length() {
+    if i > 0 {
+      sb.write_string(", ")
+    }
+    let (from, to) = ranges[i]
+    sb.write_string(from.to_string())
+    if to > from {
+      sb.write_string("-")
+      sb.write_string(to.to_string())
+    }
+    i = i + 1
+  }
+  sb.to_string()
+}

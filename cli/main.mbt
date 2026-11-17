@@ -119,7 +119,7 @@ fn help() -> String {
     "               [--json] [--html] [--emit-test] [--dump-corpus]\n",
   )
   sb.write_string(
-    "               [--fail-on-finding] [--no-shrink] [--batch-size N]\n",
+    "               [--fail-on-finding] [--cov-report] [--no-shrink] [--batch-size N]\n",
   )
   sb.write_string("  moonsting list\n")
   sb.write_string("  moonsting replay --target NAME --hex HEX\n")
@@ -246,6 +246,11 @@ fn cmd_run(args : Array[String], exe : String) -> Unit {
         }
         if has_flag(args, "--dump-corpus") {
           println(@report.corpus_dump(session))
+        }
+        if has_flag(args, "--cov-report") {
+          println(
+            @core.trim_end(@report.coverage_report(session.coverage_ids())),
+          )
         }
         if corpus_dir.length() > 0 {
           let written = @engine.save_corpus(

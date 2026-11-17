@@ -43,6 +43,7 @@ findings : 3
 | 同 seed 跨后端逐字节一致（wasm-gc / js / native） | ✅ 已验证 |
 | 覆盖率反馈：手写插桩（`@cov.hit`）→ 路径指纹 | ✅（示例 target 已插桩） |
 | 无插桩 target 自动回退到"输出形状"反馈 | ✅ |
+| 插桩报告 `--cov-report`：命中的 id 段与从未命中的空洞 | ✅ |
 | 编译器覆盖率产物（`cov/EdgeSet`）接进引擎 | ❌ 见架构文档：普通二进制不落盘 |
 | 进程隔离（`--isolate`，native）：批次 worker + 崩溃输入定位 | ✅ |
 | 隔离模式下的批量最小化（一轮 ddmin = 一次 worker，`--no-shrink` 可关） | ✅ |
@@ -76,7 +77,7 @@ moon run cli --target native -- run --target csv --max-execs 200000 --corpus-dir
 moon run cli --target wasm-gc -- list
 ```
 
-参数：`--target` `--seed` `--max-execs` `--time 5s` `--max-input` `--max-findings` `--seed-input`（可重复）`--json` `--html` `--emit-test` `--dump-corpus` `--isolate` `--batch-size` `--no-shrink` `--fail-on-finding` `--quiet`。
+参数：`--target` `--seed` `--max-execs` `--time 5s` `--max-input` `--max-findings` `--seed-input`（可重复）`--json` `--html` `--emit-test` `--dump-corpus` `--cov-report` `--isolate` `--batch-size` `--no-shrink` `--fail-on-finding` `--quiet`。
 
 > 小提醒：被 `Ctrl-C` 或强杀打断的运行，可能在当前目录留下 `.moonsting-*` 临时文件（批次、结果、启动脚本）。它们已在 `.gitignore` 里，手动删除即可——没有 `readdir` 就没法在启动时自动清理，这是 stdlib 的边界，不是懒得写。
 
@@ -108,7 +109,7 @@ moon run cli --target wasm-gc -- list
 | CSV | 含 `,` 或换行且无可打印之外的字节 | 沿用原来的引号/分隔符编辑 |
 | 其它 | 兜底 | 长度字段 ±1（TLV / RLE / protobuf 最恨这个） |
 
-效果不能靠"语料条数"看。直接测：把一个 JSON 种子变异 300 次，**199 次（66%）仍然结构合法**。剩下 34% 基本是"删掉一个值留下 `{"a":}`"——这是 token 级删除的固有代价，比随机字节变异（几乎 0%）高一个数量级。
+效果不能靠"语料条数"看。直接测：把一个 JSON 种子变异 300 次，**297 次（99%）仍然结构合法**——前提是复制以"成员"为单位、删除连 key 一起删。中间那版只删值不删 key，合法率 46%（用一个足够严的检查器量到的真实数字，见 DEVLOG 的两条度量教训）。
 
 ## 四种 oracle
 

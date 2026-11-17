@@ -29,3 +29,19 @@ test "report: json line is parseable by eye" {
   assert_true(line.contains("\"input\":\"22\""))
   assert_true(line.has_suffix("}\n"))
 }
+
+///|
+test "report: coverage report lists ranges and gaps" {
+  let text = @report.coverage_report([600, 601, 602, 605])
+  assert_true(text.contains("4 ids hit"))
+  assert_true(text.contains("600-602"))
+  assert_true(text.contains("605"))
+  assert_true(text.contains("gaps"))
+  assert_true(text.contains("603-604"))
+}
+
+///|
+test "report: an uninstrumented target says so" {
+  let text = @report.coverage_report([])
+  assert_true(text.contains("not instrumented"))
+}
