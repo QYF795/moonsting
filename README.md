@@ -42,7 +42,8 @@ findings : 3
 | CLI：`run` / `list` / `replay` / `minimize` | ✅ |
 | 同 seed 跨后端逐字节一致（wasm-gc / js / native） | ✅ 已验证 |
 | 覆盖率产物解析（`cov/EdgeSet` + 测试） | ✅ 已实现，未接线到引擎 |
-| 进程隔离 / 批次 worker / 崩溃二分定位 | ❌ 未实现（native 工具链已就绪，下一步） |
+| 进程隔离（`--isolate`，native）：批次 worker + 崩溃输入定位 | ✅ |
+| 崩溃用例最小化（隔离模式下） | ❌ 需要按 probe 进程化，见架构文档 |
 | 语料持久化（`--corpus-dir`） | ❌ 需要文件系统 API |
 | 并行 `--jobs` | ❌ |
 
@@ -101,7 +102,26 @@ let target = @core.Target::new(
 1. **反馈信号默认是"输出形状"而不是边覆盖**：`v:123` 与 `v:456` 同形状。零依赖、跨后端一致，任何 target 立刻可用；真实边覆盖的解析器（`cov/EdgeSet`）已实现，接线工作留作下一步。
 2. **三种报告同源**：text / jsonl / html 都从同一个 `Session` 渲染，jsonl 逐字节可作为 diff 输入。
 3. **finding 按形状去重**：数字折叠成 `#` 后再哈希，同一类 bug 只报一次。
-4. **诚实的能力边界**：没有进程隔离就不假装有——panic 会终止整轮 fuzz，这一点写在 [docs/架构.md](docs/架构.md) 里，而不是留一个看起来能用的假接口。
+4. **诚实的能力边界**：不开 `--isolate` 时 panic 会终止整轮 fuzz；开了才隔离，代价写在同一张表里。
+
+## 崩溃隔离
+
+panic 会带走整个进程——在没有隔离的时候，它带走的是 fuzzer 本身。`--isolate` 把"执行"挪进子进程：
+
+```bash
+moon run cli --target native -- run --target boom --seed 1 --max-execs 3000 --isolate
+
+target   : boom  (oracle: same)
+execs    : 3000 in 11497 ms  (260 exec/s)
+corpus   : 15 entries, 14 buckets, 11 novel inputs
+findings : 1
+  [crash] boom  input=de63 (2B)
+        worker exited with code -1073740791 on input 247 of 512
+```
+
+`boom` 是专门用来打崩自己的演示 target（遇到字节 `0xDE` 就 abort）。没有 `--isolate` 时它会直接杀掉 fuzzer——这正是它存在的意义。
+
+工作方式：父进程保留语料与调度，把一个批次（默认 512 个输入）写成 hex 行交给子进程；子进程**每执行一条就写一行结果并 flush**。所以崩溃时"输出文件里有多少行"就是"第几个输入打死的"，不需要二分——二分是更慢地求同一个数字。
 
 ## 性能（本机实测）
 
@@ -133,10 +153,10 @@ cli/       参数解析
 
 ## 限制与下一步
 
-1. **进程隔离**（P0）：批次 worker + 崩溃后二分定位。MSVC 工具链已装好、`moon build --target native` 已通过，剩下的是实现本身。
+1. **隔离模式下的最小化**：崩溃输入目前保持原样（要缩它就得按 probe 起进程）；非崩溃 finding 也已停用 shrink，同样因为要重跑很多次。
 2. **覆盖率接线**（P1）：在 `moon test --enable-coverage` 下驱动 fuzz，把 `EdgeSet` 的增量作为语料准入，替换形状反馈。
 3. **语料持久化**（P1）：`--corpus-dir`，让长跑可以中断续跑。
-4. **并行**（P2）：`--jobs N`，多进程各自跑不同 seed，finding 按形状合并。
+4. **并行**（P2）：`--jobs N`。现在每个批次串行起一个子进程，单核；`--jobs` 要的是同时起 N 个（Windows 用 `start /b`，POSIX 用 `&`），finding 按形状合并。
 5. **更多 target**（P2）：把生态里测试薄的解析器（ARFF / protobuf / parquet 编码）接成 case。
 
 ## 命名与发布

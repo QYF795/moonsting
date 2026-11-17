@@ -76,7 +76,7 @@ fn decimal_case() -> Case {
 
 ///|
 pub fn catalog() -> Array[Case] {
-  [json_case(), csv_case(), varint_case(), decimal_case()]
+  [json_case(), csv_case(), varint_case(), decimal_case(), boom_case()]
 }
 
 ///|

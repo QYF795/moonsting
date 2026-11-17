@@ -16,20 +16,10 @@ pub struct Session {
 }
 
 ///|
-pub fn run(case : @targets.Case, config : @core.Config) -> Session {
-  run_with(case, config, [])
-}
-
-///|
-/// Same as `run`, plus extra seed inputs (hex strings passed on the command
-/// line, or a corpus exported by a previous run). Seeds are loaded before the
-/// loop, so they participate in mutation from the very first execution.
-pub fn run_with(
-  case : @targets.Case,
-  config : @core.Config,
-  extra_seeds : Array[Bytes],
-) -> Session {
-  let session = {
+/// The one place a session is constructed, so the in-process and isolated
+/// runners cannot drift apart.
+fn make(case : @targets.Case, config : @core.Config) -> Session {
+  {
     case_: case,
     config_: config,
     mutator_: @mutate.Mutator::new(
@@ -45,6 +35,23 @@ pub fn run_with(
     pool_: [],
     batch_: 0,
   }
+}
+
+///|
+pub fn run(case : @targets.Case, config : @core.Config) -> Session {
+  run_with(case, config, [])
+}
+
+///|
+/// Same as `run`, plus extra seed inputs (hex strings passed on the command
+/// line, or a corpus exported by a previous run). Seeds are loaded before the
+/// loop, so they participate in mutation from the very first execution.
+pub fn run_with(
+  case : @targets.Case,
+  config : @core.Config,
+  extra_seeds : Array[Bytes],
+) -> Session {
+  let session = make(case, config)
   session.prime(extra_seeds)
   session.drive()
   session
@@ -142,8 +149,7 @@ fn Session::drive(self : Session) -> Unit {
 
 ///|
 fn Session::step(self : Session) -> Unit {
-  let base = self.corpus_.pick()
-  let candidate = self.mutator_.mutate(base, self.pool_)
+  let candidate = self.candidate()
   let output = self.case_.target().run(candidate)
   self.stats_.record_exec()
   let verdict = self.case_.oracle().check(candidate, output)
@@ -169,10 +175,27 @@ fn Session::record(
   _output : String,
   verdict : String,
 ) -> Unit {
-  // Dedupe by *shape*, not by exact text: `v:4294967186` and `v:12348032000`
-  // are the same bug (a 32-bit truncation), and a report with sixteen copies
-  // of it is worse than a report with one.
-  let key = @core.hash_bytes(@utf8.encode(@core.shape(verdict)))
+  let kind = match self.case_.oracle() {
+    @core.Oracle::Diff(_l, _r) => @core.FindingKind::Mismatch
+    @core.Oracle::Custom(_n, _f) => @core.FindingKind::Violation
+    @core.Oracle::Same => @core.FindingKind::Violation
+  }
+  let small = self.shrink(input)
+  self.push_finding(kind, small, verdict)
+}
+
+///|
+/// Add a finding, deduplicated by the *shape* of its detail text: `v:4294967186`
+/// and `v:12348032000` are the same bug (a 32-bit truncation), and a report with
+/// sixteen copies of it is worse than a report with one. The isolated runner
+/// uses this directly, because it cannot minimize a crash without spawning.
+fn Session::push_finding(
+  self : Session,
+  kind : @core.FindingKind,
+  input : Bytes,
+  detail : String,
+) -> Unit {
+  let key = @core.hash_bytes(@utf8.encode(@core.shape(detail)))
   let mut i = 0
   while i < self.verdicts_.length() {
     if self.verdicts_[i] == key {
@@ -181,22 +204,24 @@ fn Session::record(
     i = i + 1
   }
   self.verdicts_.push(key)
-  let small = self.shrink(input)
-  let kind = match self.case_.oracle() {
-    @core.Oracle::Diff(_l, _r) => @core.FindingKind::Mismatch
-    @core.Oracle::Custom(_n, _f) => @core.FindingKind::Violation
-    @core.Oracle::Same => @core.FindingKind::Violation
-  }
   self.findings_.push(
     @core.Finding::new(
       kind,
       self.case_.name(),
-      small,
-      verdict,
+      input,
+      detail,
       self.stats_.execs(),
     ),
   )
   self.stats_.record_finding()
+}
+
+///|
+/// One candidate input: pick from the corpus, mutate. Shared by the in-process
+/// loop and the isolated one so both explore the same way.
+fn Session::candidate(self : Session) -> Bytes {
+  let base = self.corpus_.pick()
+  self.mutator_.mutate(base, self.pool_)
 }
 
 ///|

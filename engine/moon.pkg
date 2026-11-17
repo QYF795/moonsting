@@ -11,6 +11,7 @@ import {
   "moonsting/cov",
   "moonsting/shrink",
   "moonsting/targets",
+  "moonsting/proc",
   "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
 }

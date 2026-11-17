@@ -54,6 +54,23 @@ findings : 1
 
 这一栏是刻意的：一个 fuzzer 只在"确实有 bug"时才报警，比一个天天报警的 fuzzer 有用得多。早期版本曾在这里报出 9 条"violation"，全部是**我自己 oracle 的假阳性**——我最初比较的是完整输出字符串，而错误信息里带位置（`@0` → `@1`），追加空格当然会变。修正为只比较"接受/拒绝"后归零。这个教训写进了 `DEVLOG.md`。
 
+## 3.5 崩溃隔离：让打崩自己的 target 变成一条 finding
+
+`targets/boom.mbt` 遇到字节 `0xDE` 就 abort，用来验证隔离路径：
+
+```
+$ moon run cli --target native -- run --target boom --seed 1 --max-execs 3000 --isolate
+
+execs    : 3000 in 11497 ms  (260 exec/s)
+findings : 1
+  [crash] boom  input=de63 (2B)
+        worker exited with code -1073740791 on input 247 of 512
+```
+
+两个数字值得看：`input=de63` 是 2 字节的复现（隔离模式不做 shrink，见架构文档）；`input 247 of 512` 是子进程死在批次的第 247 条 —— 由"结果文件里已经有 247 行"直接得出，没有二分。
+
+不开 `--isolate` 跑同一个 target，fuzzer 自己会被 abort 带走。这不是 bug，是它证明的那件事。
+
 ## 4. 性能
 
 | target | 后端 | 执行数 | 耗时 | 吞吐 |
@@ -64,6 +81,8 @@ findings : 1
 | `varint` | js (node) | 100,000 | 1,615 ms | 61,919 exec/s |
 | `varint` | native (release) | 200,000 | 1,042 ms | 191,938 exec/s |
 | `varint` | native (debug) | 50,000 | 1,243 ms | 40,225 exec/s |
+| `varint`（--isolate, batch 512） | native (debug) | 20,000 | 8,035 ms | 2,489 exec/s |
+| `boom`（--isolate，每批可能崩） | native (debug) | 3,000 | 11,497 ms | 260 exec/s |
 | `varint` | js (node) | 5,000 | 123 ms | 40,650 exec/s |
 
 读法：

@@ -233,3 +233,17 @@ pub fn escape_json(s : String) -> String {
   }
   sb.to_string()
 }
+
+///|
+/// Substring by code-unit index, clamped. Used by path handling, where slicing
+/// an ASCII path must not depend on grapheme boundaries.
+pub fn slice_str(s : String, start : Int32, end : Int32) -> String {
+  let sb = StringBuilder()
+  let mut i = if start < 0 { 0 } else { start }
+  let hi = if end > s.length() { s.length() } else { end }
+  while i < hi {
+    sb.write_char(s.get_char(i).unwrap())
+    i = i + 1
+  }
+  sb.to_string()
+}

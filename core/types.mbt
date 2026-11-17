@@ -169,6 +169,9 @@ pub fn Config::quiet(self : Config) -> Bool {
 pub(all) enum FindingKind {
   Mismatch
   Violation
+  /// The target died (panic / abort) in a worker process. Only the isolated
+  /// runner can report this: in-process, the crash takes the fuzzer with it.
+  Crash
 }
 
 ///|
@@ -176,6 +179,7 @@ pub fn FindingKind::label(self : FindingKind) -> String {
   match self {
     FindingKind::Mismatch => "mismatch"
     FindingKind::Violation => "violation"
+    FindingKind::Crash => "crash"
   }
 }
 

@@ -117,7 +117,17 @@ fn help() -> String {
   )
   sb.write_string("  moonsting list\n")
   sb.write_string("  moonsting replay --target NAME --hex HEX\n")
-  sb.write_string("  moonsting minimize --target NAME --hex HEX\n\n")
+  sb.write_string("  moonsting minimize --target NAME --hex HEX\n")
+  sb.write_string(
+    "  moonsting worker --target NAME --batch FILE --out FILE\n\n",
+  )
+  sb.write_string(
+    "run flags: --isolate runs each batch in a child process, so a\n",
+  )
+  sb.write_string(
+    "panic is reported instead of killing the run; --batch-size N\n",
+  )
+  sb.write_string("sets how many inputs one child executes (default 512).\n\n")
   sb.write_string("targets:\n")
   let names = @targets.names()
   let mut i = 0
@@ -182,7 +192,7 @@ fn hex_seeds(args : Array[String]) -> Array[Bytes] {
 }
 
 ///|
-fn cmd_run(args : Array[String]) -> Unit {
+fn cmd_run(args : Array[String], exe : String) -> Unit {
   match resolve_target(args) {
     None => ()
     Some(case) => {
@@ -193,7 +203,16 @@ fn cmd_run(args : Array[String]) -> Unit {
         .with_max_findings(int_flag(args, "--max-findings", 16))
         .with_time_budget_ms(time_flag(args))
         .with_quiet(has_flag(args, "--quiet"))
-      let session = @engine.run_with(case, config, hex_seeds(args))
+      let session = if has_flag(args, "--isolate") {
+        @engine.run_isolated(
+          case,
+          config,
+          int_flag(args, "--batch-size", 512),
+          exe,
+        )
+      } else {
+        @engine.run_with(case, config, hex_seeds(args))
+      }
       if has_flag(args, "--json") {
         println(@report.jsonl(session))
       } else if has_flag(args, "--html") {
@@ -300,6 +319,9 @@ fn is_command(a : String) -> Bool {
   if a == "minimize" {
     return true
   }
+  if a == "worker" {
+    return true
+  }
   if a == "help" {
     return true
   }
@@ -346,13 +368,15 @@ fn main {
   let cmd = args[at]
   let rest = tail(args, at + 1)
   if cmd == "run" {
-    cmd_run(rest)
+    cmd_run(rest, self_exe(args))
   } else if cmd == "list" {
     cmd_list(rest)
   } else if cmd == "replay" {
     cmd_replay(rest)
   } else if cmd == "minimize" {
     cmd_minimize(rest)
+  } else if cmd == "worker" {
+    cmd_worker(rest)
   } else {
     println(help())
   }

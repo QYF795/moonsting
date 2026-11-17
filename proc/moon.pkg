@@ -1,0 +1,14 @@
+// moonsting proc: the small amount of OS access the fuzzer needs.
+//
+// Two capabilities, nothing else:
+//   - read/write/remove a file (batch in, results out)
+//   - run a command and get its exit code (`system`)
+//
+// Implemented with libc directly so the project keeps its zero-dependency
+// promise. On non-native backends the same API exists but `supported()` is
+// false and every call is a no-op, so the engine can import this package
+// unconditionally and degrade to in-process execution.
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+}
