@@ -113,6 +113,32 @@ fn utf8_case() -> Case {
 }
 
 ///|
+fn urlenc_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"abc", b"a%20b", b"%E4%B8%AD", b"~-._", b"", b"a%2Fb",
+  ]
+  let target = @core.Target::new("urlenc.check", seeds, url_check)
+  Case::new(
+    "urlenc",
+    target,
+    @core.Oracle::Custom("urlenc.roundtrip", url_roundtrip_holds),
+  )
+}
+
+///|
+fn protobuf_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"\x08\x01", b"\x12\x02hi", b"", b"\x08\x96\x01", b"\x1d\x01\x02\x03\x04",
+  ]
+  let target = @core.Target::new("protobuf.check", seeds, pb_check)
+  Case::new(
+    "protobuf",
+    target,
+    @core.Oracle::Custom("protobuf.roundtrip", pb_roundtrip_holds),
+  )
+}
+
+///|
 pub fn catalog() -> Array[Case] {
   [
     json_case(),
@@ -122,6 +148,8 @@ pub fn catalog() -> Array[Case] {
     base64_case(),
     tlv_case(),
     utf8_case(),
+    urlenc_case(),
+    protobuf_case(),
     boom_case(),
   ]
 }
