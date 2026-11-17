@@ -2,7 +2,7 @@
 
 **给 MoonBit 补上缺失的那一层：喂进坏字节，拿回一个最小反例、一份报告和一条能粘贴进仓库的回归测试。**
 
-零依赖，纯 MoonBit，同时跑在 `wasm-gc` 和 `js` 上；native 因为本机没有 C 编译器尚未验证。
+零依赖，纯 MoonBit，同一个 seed 在 `wasm-gc` / `js` / `native` 三个后端产出逐字节相同的结果。
 
 ```
 $ moon run cli --target wasm-gc -- run --target varint --seed 1 --max-execs 50000
@@ -40,9 +40,9 @@ findings : 3
 | 语料导出（`--dump-corpus`）与续跑（`--seed-input`） | ✅ |
 | CI 钩子 `--fail-on-finding`（有 finding 则非零退出） | ✅ |
 | CLI：`run` / `list` / `replay` / `minimize` | ✅ |
-| 同 seed 跨后端逐字节一致（wasm-gc vs js） | ✅ 已验证 |
+| 同 seed 跨后端逐字节一致（wasm-gc / js / native） | ✅ 已验证 |
 | 覆盖率产物解析（`cov/EdgeSet` + 测试） | ✅ 已实现，未接线到引擎 |
-| 进程隔离 / 批次 worker / 崩溃二分定位 | ❌ 需要 native 或进程 API |
+| 进程隔离 / 批次 worker / 崩溃二分定位 | ❌ 未实现（native 工具链已就绪，下一步） |
 | 语料持久化（`--corpus-dir`） | ❌ 需要文件系统 API |
 | 并行 `--jobs` | ❌ |
 
@@ -108,6 +108,8 @@ let target = @core.Target::new(
 | target | 后端 | 吞吐 |
 |---|---|---|
 | varint（差分） | wasm-gc | 201,207 exec/s |
+| varint（差分） | native (release) | 191,938 exec/s |
+| varint（差分） | native (debug) | 40,225 exec/s |
 | json | wasm-gc | 143,472 exec/s |
 | csv | wasm-gc | 158,227 exec/s |
 | varint | js (node) | 61,919 exec/s |
@@ -131,7 +133,7 @@ cli/       参数解析
 
 ## 限制与下一步
 
-1. **进程隔离**（P0）：批次 worker + 崩溃后二分定位。需要 native 编译（装 MSVC Build Tools）或 `js` 的 `child_process`，二者都还没接。
+1. **进程隔离**（P0）：批次 worker + 崩溃后二分定位。MSVC 工具链已装好、`moon build --target native` 已通过，剩下的是实现本身。
 2. **覆盖率接线**（P1）：在 `moon test --enable-coverage` 下驱动 fuzz，把 `EdgeSet` 的增量作为语料准入，替换形状反馈。
 3. **语料持久化**（P1）：`--corpus-dir`，让长跑可以中断续跑。
 4. **并行**（P2）：`--jobs N`，多进程各自跑不同 seed，finding 按形状合并。

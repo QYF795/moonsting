@@ -105,3 +105,32 @@
 - 覆盖率接线（`EdgeSet` 接进 engine，替换 `Buckets`）
 - 进程池（需要 native 编译环境；或确认 `js` 的 `child_process` 路线）
 
+---
+
+### D3 · 11/17 下午 · 装上 MSVC，三个后端跑出同一份结果
+
+**今日目标**
+- 装 MSVC Build Tools，解锁 `--target native`；验证后把文档里的"未验证"改写
+
+**实际完成**
+- `winget install Microsoft.VisualStudio.2022.BuildTools --override "--quiet --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"`，后台跑约 27 分钟、3.6 GB，落地 `cl.exe 14.44.35207`
+- `moon build --target native` 通过；`moon test --target native` 53/53 通过
+- 三后端（wasm-gc / js / native）同 seed、同执行数：JSONL 逐字节相同，语料 52 entries / 51 buckets / 46 novel 完全一致
+- 性能：native release 191,938 exec/s、native debug 40,225、wasm-gc 201,207、js 61,919
+- `script/install-msvc.ps1` 固化了安装命令（可重跑、可交给别人）
+
+**AI 产出与错误**
+| AI 生成了什么 | 错在哪 | 怎么发现的 | 最终怎么改 |
+|---|---|---|---|
+| 用 `Invoke-WebRequest` 探 `aka.ms` 判断能否下载 | 连接被重置，于是先得出"机器没有外网"的结论 | 之后 winget 能正常 search/install，说明只是 PowerShell 的 .NET 栈被拦 | 区分"shell 没有出口"与"机器没有网络"：换一个客户端（winget/WinINet）再测一次 |
+| 直接跑 `winget install` | 退出码 -1978335231，看起来像 winget 坏了 | 放宽文件沙箱后 `winget --version` 立刻正常 | 先单测工具本身可用性，再判断是环境问题还是工具问题 |
+| 装完后没验证就说"应该可以了" | 「应该」不是证据 | `moon build --target native` 一次通过才写进文档 | 文档里的每个 ✅ 后面都要有一条能重跑的命令 |
+
+**关键决策**
+- 用 winget + VCTools 工作负载，而不是单独装 clang-cl：moon 在 Windows 上要的是 MSVC 工具链 + Windows SDK，缺一个都链接不了。
+- 装完先跑三后端一致性，再更新文档：native 只是"能编译"不算数，跑出同样的 3 条 finding 才算。
+
+**明天**
+- 进程池：native 已就绪，`--jobs N` + 崩溃后二分定位可以动工了
+
+

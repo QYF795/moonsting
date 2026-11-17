@@ -62,6 +62,8 @@ findings : 1
 | `json`（单次解析 + oracle 再跑一次） | wasm-gc | 100,000 | 697 ms | 143,472 exec/s |
 | `csv`（单次解析） | wasm-gc | 100,000 | 632 ms | 158,227 exec/s |
 | `varint` | js (node) | 100,000 | 1,615 ms | 61,919 exec/s |
+| `varint` | native (release) | 200,000 | 1,042 ms | 191,938 exec/s |
+| `varint` | native (debug) | 50,000 | 1,243 ms | 40,225 exec/s |
 | `varint` | js (node) | 5,000 | 123 ms | 40,650 exec/s |
 
 读法：
@@ -70,14 +72,15 @@ findings : 1
 - js 后端约慢 3.2 倍，属于预期（wasm-gc 有 AOT 与更紧凑的对象布局）；
 - 这些数字里**没有**进程启动开销——v0.1 是进程内直调，进程池落地后吞吐会下降一档（预计 3–5 万 exec/s），这是拿崩溃隔离必须付的价钱。
 
-## 5. 确定性：跨后端逐字节一致
+## 5. 确定性：三个后端逐字节一致
 
-同 seed、同执行数，两个后端产出的 JSONL **逐字节相同**（包括 finding 的 exec 序号）：
+同 seed、同执行数，`wasm-gc` / `js` / `native` 三个后端产出的 JSONL **逐字节相同**（包括 finding 的 exec 序号），语料规模也一致（52 entries / 51 buckets / 46 novel）：
 
 ```
 $ moon run cli --target wasm-gc -- run --target varint --seed 1 --max-execs 50000 --json > a.jsonl
 $ moon run cli --target js      -- run --target varint --seed 1 --max-execs 50000 --json > b.jsonl
-$ diff a.jsonl b.jsonl     # 无输出
+$ moon run cli --target native  -- run --target varint --seed 1 --max-execs 50000 --json > c.jsonl
+$ diff a.jsonl b.jsonl && diff a.jsonl c.jsonl    # 无输出
 ```
 
 ```json
