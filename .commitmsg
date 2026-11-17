@@ -1,9 +1,0 @@
-v0.12: member-aware JSON mutation + coverage report
-
-- json mutate now duplicates whole members and deletes keys with their value
-  and one separator; strict validity goes from 46% to 99% (297/300)
-- cov: seen_ids / sorted_seen_from / ranges / gaps / format_ranges
-- report: coverage_report lists hit id ranges and the holes inside them
-- cli: --cov-report (in-process runs; isolated runs report nothing because the
-  parent never executes the target)
-- 102 tests native / 85 wasm-gc
