@@ -55,5 +55,5 @@ test "e2e: emitted regression test is valid MoonBit scaffolding" {
 ///|
 test "api: unknown target is a clean None" {
   assert_true(@api.fuzz("nope", @core.Config::default()) is None)
-  assert_eq(@api.target_names().length(), 10)
+  assert_eq(@api.target_names().length(), 11)
 }

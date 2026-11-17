@@ -139,6 +139,19 @@ fn protobuf_case() -> Case {
 }
 
 ///|
+fn rle_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"\x02\x03", b"\x06\x07", b"\x03\x01\x02\x03\x04\x05", b"", b"\x02\x1f",
+  ]
+  let target = @core.Target::new("rle.check", seeds, rle_check)
+  Case::new(
+    "rle",
+    target,
+    @core.Oracle::Custom("rle.roundtrip", rle_roundtrip_holds),
+  )
+}
+
+///|
 pub fn catalog() -> Array[Case] {
   [
     json_case(),
@@ -150,6 +163,7 @@ pub fn catalog() -> Array[Case] {
     utf8_case(),
     urlenc_case(),
     protobuf_case(),
+    rle_case(),
     boom_case(),
   ]
 }
