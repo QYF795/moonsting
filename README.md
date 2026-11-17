@@ -19,7 +19,7 @@ findings : 3
         expected v:27648835596 got v:1879031820
 ```
 
-第一个反例在第 **12** 次执行被发现，最小化到 5 字节。详细分析见 [docs/findings.md](docs/findings.md)。
+第一个反例在几百次执行内被发现（当前版本是第 382 次），最小化到 5 字节。完整分析见 [docs/case-varint.md](docs/case-varint.md)。
 
 ## 为什么需要它
 
@@ -233,6 +233,16 @@ cli/       参数解析
 3. **没有"哪些 id 从未命中"的报告**：插桩覆盖率本可以反过来指导插桩点，这一层还没做。
 4. **并行是亚线性的**：`--jobs` 要配 `--batch-size`，组合表见上；单 job 时仍是单核。
 5. **更多 target**（P2）：把生态里测试薄的解析器（ARFF / protobuf / parquet 编码）接成 case。
+
+## 文档
+
+| 文档 | 内容 |
+|---|---|
+| [docs/验收.md](docs/验收.md) | 能力矩阵、实测数据、一键复现、已知限制 |
+| [docs/开发历程.md](docs/开发历程.md) | 三条决策线、两次度量翻车、AI 使用方式、与开源工作的取舍 |
+| [docs/case-varint.md](docs/case-varint.md) | 一个真 bug 的完整案例：现象 → 复现 → 根因 → 修复 → 回归 |
+| [docs/架构.md](docs/架构.md) | 模块划分与每个关键决策的取舍 |
+| [docs/findings.md](docs/findings.md) | 十个 target 的实测结果与性能表 |
 
 ## 命名与发布
 
