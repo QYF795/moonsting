@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install MoonBit
+        run: curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+
+      - name: add MoonBit to PATH
+        run: echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: toolchain version
+        run: moon version --all
+
+      # Warnings are errors: the repo is kept clean at --deny-warn, and CI is
+      # where that promise is enforced.
+      - name: check
+        run: moon check --target wasm-gc --deny-warn
+
+      - name: test (wasm-gc)
+        run: moon test --target wasm-gc
+
+      - name: test (js)
+        run: moon test --target js
+
+# The native backend and everything under `--isolate` are exercised locally on
+# Windows (see docs/验收.md): they need a C toolchain and spawn child processes,
+# neither of which is worth making the first CI run depend on. The wasm-gc and js
+# jobs cover the pure logic, which is where the tests live.

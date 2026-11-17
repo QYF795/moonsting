@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Point the module at your mooncakes account before publishing.
+# Point the module at your mooncakes / GitHub account before publishing.
 #
-#   script/set-user.sh <mooncakes-username>
+#   script/set-user.sh <username>
 #
 # Why this exists: mooncakes requires the module name to be
 # `<username>/<module>` and to match the publishing account, while local
@@ -12,7 +12,7 @@ set -euo pipefail
 
 user="${1:-}"
 if [ -z "$user" ]; then
-  echo "usage: script/set-user.sh <mooncakes-username>" >&2
+  echo "usage: script/set-user.sh <username>" >&2
   exit 2
 fi
 
@@ -27,10 +27,20 @@ find . -name '*.pkg' -not -path './_build/*' -print0 | while IFS= read -r -d '' 
   fi
 done
 
-# 2. module name
+# 2. module name + repository
 sed -i.bak "s|^name = .*|name = \"$user/moonsting\"|" moon.mod
 rm -f moon.mod.bak
+if grep -q '^repository = ' moon.mod; then
+  sed -i.bak "s|^repository = .*|repository = \"https://github.com/$user/moonsting\"|" moon.mod
+  rm -f moon.mod.bak
+else
+  printf 'repository = "https://github.com/%s/moonsting"\n' "$user" >> moon.mod
+fi
 
 echo
 echo "module is now $user/moonsting"
-echo "verify with: moon check --target wasm-gc --deny-warn && moon test --target wasm-gc"
+echo "verify with:"
+echo "  moon check --target wasm-gc --deny-warn"
+echo "  moon test  --target native"
+echo "  moon package --list"
+echo "then: moon publish"
