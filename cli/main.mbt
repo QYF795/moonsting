@@ -209,6 +209,7 @@ fn cmd_run(args : Array[String], exe : String) -> Unit {
           config,
           int_flag(args, "--batch-size", 512),
           exe,
+          !has_flag(args, "--no-shrink"),
         )
       } else {
         @engine.run_with(case, config, hex_seeds(args))

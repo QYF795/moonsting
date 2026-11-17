@@ -1,4 +1,9 @@
-// moonsting shrink: delta debugging.
+// Batch-aware delta debugging.
+//
+// The in-process minimizer probes one candidate at a time. That is fine when a
+// probe costs a function call, and impossible when a probe costs a process.
+// Here the predicate takes a *whole round* of candidates and answers for all of
+// them, so one worker invocation judges dozens of reductions.
 import {
   "moonsting/core",
 }

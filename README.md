@@ -43,7 +43,8 @@ findings : 3
 | 同 seed 跨后端逐字节一致（wasm-gc / js / native） | ✅ 已验证 |
 | 覆盖率产物解析（`cov/EdgeSet` + 测试） | ✅ 已实现，未接线到引擎 |
 | 进程隔离（`--isolate`，native）：批次 worker + 崩溃输入定位 | ✅ |
-| 崩溃用例最小化（隔离模式下） | ❌ 需要按 probe 进程化，见架构文档 |
+| 隔离模式下的批量最小化（一轮 ddmin = 一次 worker） | ✅ |
+| 崩溃/违例用例最小化（隔离模式下，按轮批量 probe） | ✅（`--no-shrink` 可关） |
 | 语料持久化（`--corpus-dir`） | ❌ 需要文件系统 API |
 | 并行 `--jobs` | ❌ |
 
@@ -70,7 +71,7 @@ moon run cli --target wasm-gc -- run --target json --seed-input 612c620a --seed-
 moon run cli --target wasm-gc -- list
 ```
 
-参数：`--target` `--seed` `--max-execs` `--time 5s` `--max-input` `--max-findings` `--seed-input`（可重复）`--json` `--html` `--emit-test` `--dump-corpus` `--quiet`。
+参数：`--target` `--seed` `--max-execs` `--time 5s` `--max-input` `--max-findings` `--seed-input`（可重复）`--json` `--html` `--emit-test` `--dump-corpus` `--isolate` `--batch-size` `--no-shrink` `--fail-on-finding` `--quiet`。
 
 ## 四种 oracle
 
@@ -123,6 +124,19 @@ findings : 1
 
 工作方式：父进程保留语料与调度，把一个批次（默认 512 个输入）写成 hex 行交给子进程；子进程**每执行一条就写一行结果并 flush**。所以崩溃时"输出文件里有多少行"就是"第几个输入打死的"，不需要二分——二分是更慢地求同一个数字。
 
+### 隔离模式怎么最小化
+
+最小化要问几百次"这个更短的输入还坏吗"，而每次提问都要起进程。做法不是把提问变便宜，而是**把提问打包**：ddmin 的每一轮生成一整组候选，一个 worker 一次判完；中途崩了，父进程把尾巴重新提交。
+
+代价可以开关，也能看见：
+
+```bash
+--isolate              # 3000 execs / 30.4s，finding 5 字节
+--isolate --no-shrink  # 3000 execs / 1.1s，finding 956 字节
+```
+
+同一个种子、同一个 target，差 27 倍——差的是"每个 finding 二十轮 probe"。默认开，因为一条 5 字节的反例比一条 956 字节的反例有用得多；觉得慢就 `--no-shrink`。
+
 ## 性能（本机实测）
 
 | target | 后端 | 吞吐 |
@@ -153,10 +167,10 @@ cli/       参数解析
 
 ## 限制与下一步
 
-1. **隔离模式下的最小化**：崩溃输入目前保持原样（要缩它就得按 probe 起进程）；非崩溃 finding 也已停用 shrink，同样因为要重跑很多次。
+1. **并行 `--jobs`**：现在每批串行起一个子进程，单核；还没做同时起 N 个。
 2. **覆盖率接线**（P1）：在 `moon test --enable-coverage` 下驱动 fuzz，把 `EdgeSet` 的增量作为语料准入，替换形状反馈。
 3. **语料持久化**（P1）：`--corpus-dir`，让长跑可以中断续跑。
-4. **并行**（P2）：`--jobs N`。现在每个批次串行起一个子进程，单核；`--jobs` 要的是同时起 N 个（Windows 用 `start /b`，POSIX 用 `&`），finding 按形状合并。
+4. **覆盖率接线**（P1）：`cov/EdgeSet` 已实现，还没接进 engine 替换形状反馈。
 5. **更多 target**（P2）：把生态里测试薄的解析器（ARFF / protobuf / parquet 编码）接成 case。
 
 ## 命名与发布

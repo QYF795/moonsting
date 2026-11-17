@@ -13,6 +13,10 @@ pub struct Session {
   verdicts_ : Array[Int32]
   pool_ : Array[Bytes]
   mut batch_ : Int32
+  /// Set by the isolated runner: the worker executable and whether findings are
+  /// minimized (minimizing costs one process per probe round).
+  mut exe_ : String
+  mut shrink_ : Bool
 }
 
 ///|
@@ -34,6 +38,8 @@ fn make(case : @targets.Case, config : @core.Config) -> Session {
     verdicts_: [],
     pool_: [],
     batch_: 0,
+    exe_: "",
+    shrink_: false,
   }
 }
 

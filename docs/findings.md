@@ -67,7 +67,7 @@ findings : 1
         worker exited with code -1073740791 on input 247 of 512
 ```
 
-两个数字值得看：`input=de63` 是 2 字节的复现（隔离模式不做 shrink，见架构文档）；`input 247 of 512` 是子进程死在批次的第 247 条 —— 由"结果文件里已经有 247 行"直接得出，没有二分。
+两个数字值得看：`input=de63` 是 2 字节的复现（隔离模式下也能缩，只是这两个字节缺一不可）；`input 247 of 512` 是子进程死在批次的第 247 条 —— 由"结果文件里已经有 247 行"直接得出，没有二分。
 
 不开 `--isolate` 跑同一个 target，fuzzer 自己会被 abort 带走。这不是 bug，是它证明的那件事。
 
@@ -83,6 +83,8 @@ findings : 1
 | `varint` | native (debug) | 50,000 | 1,243 ms | 40,225 exec/s |
 | `varint`（--isolate, batch 512） | native (debug) | 20,000 | 8,035 ms | 2,489 exec/s |
 | `boom`（--isolate，每批可能崩） | native (debug) | 3,000 | 11,497 ms | 260 exec/s |
+| `varint`（--isolate --no-shrink） | native (debug) | 3,000 | 1,104 ms | 2,717 exec/s |
+| `varint`（--isolate，默认带 shrink） | native (debug) | 3,000 | 30,352 ms | 98 exec/s |
 | `varint` | js (node) | 5,000 | 123 ms | 40,650 exec/s |
 
 读法：

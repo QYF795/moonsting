@@ -12,12 +12,15 @@ pub fn run_isolated(
   config : @core.Config,
   batch_size : Int32,
   exe : String,
+  shrink : Bool,
 ) -> Session {
   if !@proc.supported() || exe.length() == 0 {
     // No OS access on this backend: fall back rather than pretending.
     return run_with(case, config, [])
   }
   let session = make(case, config)
+  session.exe_ = exe
+  session.shrink_ = shrink
   session.prime([])
   session.drive_isolated(exe, if batch_size > 0 { batch_size } else { 512 })
   session
@@ -68,24 +71,40 @@ fn Session::run_batch(self : Session, exe : String, batch_size : Int32) -> Unit 
   if batch.length() == 0 {
     return
   }
+  match self.execute_chunk(exe, batch) {
+    None =>
+      // No worker available for this batch: run it here instead of pretending.
+      self.run_batch_inproc(batch)
+    Some(chunk) => {
+      let (results, code) = chunk
+      self.absorb(batch, results, code)
+    }
+  }
+}
+
+///|
+/// Run one chunk of inputs through a worker and return its result lines and
+/// exit code, or `None` when spawning is impossible (no OS support, or a path
+/// `cmd.exe` cannot carry).
+fn Session::execute_chunk(
+  self : Session,
+  exe : String,
+  inputs : Array[Bytes],
+) -> (Array[String], Int32)? {
   let batch_path = @proc.temp_path("batch.txt")
   let out_path = @proc.temp_path("out.txt")
   let text = StringBuilder()
   let mut j = 0
-  while j < batch.length() {
-    text.write_string(@core.hex_all(batch[j]))
+  while j < inputs.length() {
+    text.write_string(@core.hex_all(inputs[j]))
     text.write_string("\n")
     j = j + 1
   }
   if !@proc.write_file(batch_path, @utf8.encode(text.to_string())) {
-    // Temp directory unwritable: degrade to in-process for this batch.
-    self.run_batch_inproc(batch)
-    return
+    return None
   }
   let cmd_exe = spawn_path(exe)
   if !is_ascii(cmd_exe) {
-    // Still non-ASCII: cmd.exe would mangle it. Run these in-process rather
-    // than reporting a fake crash on every batch.
     if !self.config_.quiet() {
       println(
         "warning: cannot spawn a worker from a non-ASCII path; running this batch in-process",
@@ -93,8 +112,7 @@ fn Session::run_batch(self : Session, exe : String, batch_size : Int32) -> Unit 
     }
     @proc.remove_file(batch_path)
     @proc.remove_file(out_path)
-    self.run_batch_inproc(batch)
-    return
+    return None
   }
   let cmd = @proc.arg(cmd_exe) +
     " worker --target " +
@@ -111,7 +129,7 @@ fn Session::run_batch(self : Session, exe : String, batch_size : Int32) -> Unit 
   let results = split_lines(@proc.read_file(out_path))
   @proc.remove_file(batch_path)
   @proc.remove_file(out_path)
-  self.absorb(batch, results, code)
+  Some((results, code))
 }
 
 ///|
@@ -143,7 +161,7 @@ fn Session::absorb(
             }
           }
         } else {
-          self.push_finding(self.oracle_kind(), input, verdict)
+          self.push_finding(self.oracle_kind(), self.shrunk(input, 1), verdict)
         }
       }
     }
@@ -157,7 +175,7 @@ fn Session::absorb(
     self.stats_.record_exec()
     self.push_finding(
       @core.FindingKind::Crash,
-      input,
+      self.shrunk(input, 2),
       "worker exited with code " +
       exit_code.to_string() +
       " on input " +
