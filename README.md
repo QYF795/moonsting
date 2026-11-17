@@ -72,6 +72,8 @@ moon run cli --target wasm-gc -- list
 
 参数：`--target` `--seed` `--max-execs` `--time 5s` `--max-input` `--max-findings` `--seed-input`（可重复）`--json` `--html` `--emit-test` `--dump-corpus` `--isolate` `--batch-size` `--no-shrink` `--fail-on-finding` `--quiet`。
 
+> 小提醒：被 `Ctrl-C` 或强杀打断的运行，可能在当前目录留下 `.moonsting-*` 临时文件（批次、结果、启动脚本）。它们已在 `.gitignore` 里，手动删除即可——没有 `readdir` 就没法在启动时自动清理，这是 stdlib 的边界，不是懒得写。
+
 ## 四种 oracle
 
 | target | oracle | 判据 | 能发现什么 |
