@@ -87,7 +87,7 @@ moon run cli --target wasm-gc -- list
 
 | target | 反馈 | 语料 | 独立签名 |
 |---|---|---|---|
-| `csv`（已插桩，10 个状态位） | 路径指纹 | **613** | 611 |
+| `csv`（已插桩，10 个状态位） | 路径指纹 | **94** | 92 |
 | `json`（未插桩） | 输出形状 | 237 | 231 |
 
 为什么不用编译器自带的覆盖率：`moon build --enable-coverage` 出来的二进制**跑完不落盘**（`moon test --enable-coverage` 才会写 `moonbit_coverage_*.txt`），fuzzer 没法逐次执行读取。所以选择手写插桩——AFL 管这叫 `__afl_manual`，libFuzzer 管这叫用户自定义计数器。粒度由插桩者决定，对解析器来说通常比编译器块覆盖更有意义：哪些分支值得区分，写 target 的人最清楚。
