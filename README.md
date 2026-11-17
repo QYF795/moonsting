@@ -103,6 +103,11 @@ moon run cli --target wasm-gc -- list
 | `json` | `json.ws-invariance` | 前后空白不得改变"接受/拒绝" | 解析器的边界处理错误 |
 | `csv` | `same` | 什么都不判 | 崩溃与 hang（smoke 阶段用） |
 | `varint` | `diff(varint.fast, varint.ref)` | 两个实现必须给出同一个值 | **不崩、不报错、结果错** |
+| `decimal` | `decimal.roundtrip` | target 自己给诊断，oracle 拒绝 `roundtrip:` | 解析/格式化互相矛盾、溢出 |
+| `base64` | `base64.roundtrip` | 解码后再编码必须还原输入 | "能解但非规范"的编码（填充、尾位、字母表） |
+| `tlv` | `tlv.roundtrip` | 序列化(解析(x)) 必须逐字节等于 x | 长度算术、截断、终止符位置 |
+| `utf8` | `diff(utf8.a, utf8.b)` | 状态机版与码点解析版必须一致 | 两个独立实现的边界分歧（overlong / 代理区 / 上界） |
+| `boom` | `same` | 什么都不判 | 演示崩溃隔离（遇 `0xDE` 自杀） |
 | `decimal` | `decimal.roundtrip` | target 自己给出诊断，oracle 拒绝 `roundtrip:` 开头的结果 | 解析/格式化互相矛盾、溢出 |
 
 自定义 target 只需要一个 `(Bytes) -> String`：

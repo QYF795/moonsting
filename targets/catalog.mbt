@@ -75,8 +75,55 @@ fn decimal_case() -> Case {
 }
 
 ///|
+
+///|
+fn base64_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"AA==", b"AAA=", b"AAAA", b"Zm9v", b"+/==", b"", b"AAAAAA==", b"////",
+  ]
+  let target = @core.Target::new("base64.check", seeds, b64_check)
+  Case::new(
+    "base64",
+    target,
+    @core.Oracle::Custom("base64.roundtrip", b64_roundtrip_holds),
+  )
+}
+
+///|
+fn tlv_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"\x01\x00", b"\x01\x01A", b"\x01\x01A\x00\x00", b"\x00\x00", b"\x02\x03abc",
+  ]
+  let target = @core.Target::new("tlv.check", seeds, tlv_check)
+  Case::new(
+    "tlv",
+    target,
+    @core.Oracle::Custom("tlv.roundtrip", tlv_roundtrip_holds),
+  )
+}
+
+///|
+fn utf8_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"a", b"\xc3\xa9", b"\xe4\xb8\xad", b"\xf0\x9f\x98\x80", b"\x00", b"\xff",
+  ]
+  let a = @core.Target::new("utf8.a", seeds, utf8_count_a)
+  let b = @core.Target::new("utf8.b", seeds, utf8_count_b)
+  Case::new("utf8", a, @core.Oracle::Diff(a, b))
+}
+
+///|
 pub fn catalog() -> Array[Case] {
-  [json_case(), csv_case(), varint_case(), decimal_case(), boom_case()]
+  [
+    json_case(),
+    csv_case(),
+    varint_case(),
+    decimal_case(),
+    base64_case(),
+    tlv_case(),
+    utf8_case(),
+    boom_case(),
+  ]
 }
 
 ///|
