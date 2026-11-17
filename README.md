@@ -43,7 +43,7 @@ findings : 3
 | 同 seed 跨后端逐字节一致（wasm-gc / js / native） | ✅ 已验证 |
 | 覆盖率反馈：手写插桩（`@cov.hit`）→ 路径指纹 | ✅（示例 target 已插桩） |
 | 无插桩 target 自动回退到"输出形状"反馈 | ✅ |
-| 插桩报告 `--cov-report`：命中的 id 段与从未命中的空洞 | ✅ |
+| 插桩报告 `--cov-report`：命中的 id 段与从未命中的空洞（含隔离模式） | ✅ |
 | 编译器覆盖率产物（`cov/EdgeSet`）接进引擎 | ❌ 见架构文档：普通二进制不落盘 |
 | 进程隔离（`--isolate`，native）：批次 worker + 崩溃输入定位 | ✅ |
 | 隔离模式下的批量最小化（一轮 ddmin = 一次 worker，`--no-shrink` 可关） | ✅ |

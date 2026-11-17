@@ -1,0 +1,10 @@
+v0.13: coverage reporting works in isolated mode too
+
+- worker appends one coverage line per batch (S<TAB>id,id,...); the parent
+  merges it into its own id set
+- cov: merge_seen / encode_ids / decode_ids
+- absorb and probe both recognise the coverage line (probe only merges, it never
+  counts as a candidate result)
+- two bugs fixed on the way: the worker never called commit(), and the fold loop
+  stopped at batch.length() and silently dropped the trailing line
+- 104 tests native / 85 wasm-gc

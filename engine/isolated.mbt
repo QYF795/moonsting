@@ -160,10 +160,13 @@ fn Session::absorb(
   results : Array[String],
   exit_code : Int32,
 ) -> Unit {
+  // Results may carry one extra line at the end: the worker's coverage line.
   let mut k = 0
-  while k < results.length() && k < batch.length() {
+  while k < results.length() {
     let parts = split_tabs(results[k])
-    if parts.length() >= 3 {
+    if parts.length() >= 2 && parts[0] == "S" {
+      @cov.merge_seen(@cov.decode_ids(parts[1]))
+    } else if parts.length() >= 3 {
       let index = int_of(parts[0])
       if index >= 0 && index < batch.length() {
         let input = batch[index]

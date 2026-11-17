@@ -69,12 +69,16 @@ fn Session::probe(
         let mut k = 0
         while k < results.length() {
           let parts = split_tabs(results[k])
-          let verdict = if parts.length() >= 3 {
+          let is_coverage = parts.length() >= 2 && parts[0] == "S"
+          if is_coverage {
+            @cov.merge_seen(@cov.decode_ids(parts[1]))
+          }
+          let verdict = if parts.length() >= 3 && !is_coverage {
             @utf8.decode_lossy(@core.parse_hex(parts[2]))
           } else {
             ""
           }
-          if k < tail.length() {
+          if !is_coverage && k < tail.length() {
             statuses[origin[start + k]] = if verdict == "" { 0 } else { 1 }
           }
           k = k + 1

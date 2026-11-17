@@ -41,3 +41,19 @@ test "isolated: verdicts from the worker become findings" {
   assert_eq(findings[0].kind().label(), "violation")
   assert_eq(findings[0].detail(), "err:boom")
 }
+
+///|
+/// The trailing coverage line must be merged, and must not be mistaken for a
+/// result (it used to be dropped entirely because the fold loop stopped at
+/// `batch.length()`).
+#cfg(target="native")
+test "isolated: the coverage line is merged as coverage" {
+  @cov.clear_seen()
+  let session = make(@targets.boom_case(), @core.Config::default().with_seed(1))
+  let batch : Array[Bytes] = [b"aa"]
+  let results : Array[String] = ["0\t1\t", "S\t600,601"]
+  session.absorb(batch, results, 0)
+  assert_eq(@cov.seen_count(), 2)
+  assert_eq(session.findings().length(), 0)
+  assert_eq(session.stats().execs(), 1)
+}

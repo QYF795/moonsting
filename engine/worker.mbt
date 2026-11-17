@@ -23,6 +23,8 @@ pub fn run_worker(
     let output = case.target().run(input)
     let verdict = case.oracle().check(input, output)
     let sig = if @cov.observed() > 0 {
+      // The worker accumulates its own id set; `commit` is what fills it.
+      ignore(@cov.commit())
       @cov.fingerprint()
     } else {
       @cov.signature(output, input.length())
@@ -36,6 +38,14 @@ pub fn run_worker(
     ignore(@proc.put(handle, @utf8.encode(line)))
     @proc.flush(handle)
     i = i + 1
+  }
+  // One extra line carries the ids this worker reached, so the parent can
+  // rebuild coverage even though it never executed the target itself.
+  let ids = @cov.seen_ids()
+  if ids.length() > 0 {
+    let tail = "S\t" + @cov.encode_ids(ids) + "\n"
+    ignore(@proc.put(handle, @utf8.encode(tail)))
+    @proc.flush(handle)
   }
   @proc.close_out(handle)
 }

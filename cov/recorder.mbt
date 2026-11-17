@@ -227,3 +227,76 @@ pub fn format_ranges(ranges : Array[(Int32, Int32)]) -> String {
   }
   sb.to_string()
 }
+
+///|
+/// Merge ids observed in another process into this process's set. The isolated
+/// runner uses this to rebuild coverage in the parent from what each worker
+/// reports.
+pub fn merge_seen(ids : Array[Int32]) -> Unit {
+  let mut i = 0
+  while i < ids.length() {
+    let id = ids[i]
+    let mut known = false
+    let mut j = 0
+    while j < seen_.length() {
+      if seen_[j] == id {
+        known = true
+      }
+      j = j + 1
+    }
+    if !known {
+      seen_.push(id)
+    }
+    i = i + 1
+  }
+}
+
+///|
+/// "600,601,605" — the wire form used to carry ids out of a worker.
+pub fn encode_ids(ids : Array[Int32]) -> String {
+  let sb = StringBuilder()
+  let mut i = 0
+  while i < ids.length() {
+    if i > 0 {
+      sb.write_char(',')
+    }
+    sb.write_string(ids[i].to_string())
+    i = i + 1
+  }
+  sb.to_string()
+}
+
+///|
+pub fn decode_ids(text : String) -> Array[Int32] {
+  let out : Array[Int32] = []
+  let sb = StringBuilder()
+  let mut i = 0
+  while i <= text.length() {
+    if i == text.length() || text.get_char(i).unwrap() == ',' {
+      let piece = sb.to_string()
+      if piece.length() > 0 {
+        out.push(int_of_str(piece))
+      }
+      sb.reset()
+    } else {
+      sb.write_char(text.get_char(i).unwrap())
+    }
+    i = i + 1
+  }
+  out
+}
+
+///|
+fn int_of_str(text : String) -> Int32 {
+  let mut value = 0
+  let mut i = 0
+  while i < text.length() {
+    let v = text.get_char(i).unwrap().to_int()
+    if v < 48 || v > 57 {
+      return value
+    }
+    value = value * 10 + (v - 48)
+    i = i + 1
+  }
+  value
+}
