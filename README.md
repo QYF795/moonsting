@@ -2,7 +2,7 @@
 
 **给 MoonBit 补上缺失的那一层：喂进坏字节，拿回一个最小反例、一份报告和一条能粘贴进仓库的回归测试。**
 
-零依赖，纯 MoonBit，同一个 seed 在 `wasm-gc` / `js` / `native` 三个后端产出逐字节相同的结果。
+零依赖，纯 MoonBit，同一个 seed 在 `wasm-gc` / `js` / `native` 三个后端产出逐字节相同的结果。验收清单与实测数据见 [docs/验收.md](docs/验收.md)；`script/demo.ps1`（或 `demo.sh`）是可跑的五幕演示。
 
 ```
 $ moon run cli --target wasm-gc -- run --target varint --seed 1 --max-execs 50000

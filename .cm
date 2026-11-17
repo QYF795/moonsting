@@ -1,0 +1,8 @@
+docs+script: acceptance checklist and a runnable five-act demo
+
+- docs/验收.md: capability matrix, measured numbers (throughput per backend,
+  isolation and --jobs, coverage report, determinism), the two metric lessons,
+  known limitations, code size
+- script/demo.ps1 and script/demo.sh: tests, a real finding, replay/minimize,
+  crash isolation, coverage report and corpus persistence in ~30 seconds
+- README links the acceptance doc
