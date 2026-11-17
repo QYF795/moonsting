@@ -14,6 +14,6 @@
 // The compiler's own coverage artifacts are parsed in `edges.mbt`; they are a
 // test-run feature and are not wired into the engine (see the architecture doc).
 import {
-  "moonsting/core",
+  "QYF795/moonsting/core",
   "moonbitlang/core/encoding/utf8",
 }

@@ -1,10 +1,10 @@
 pkgtype(kind: "executable")
 
 import {
-  "moonsting/core",
-  "moonsting/engine",
-  "moonsting/report",
-  "moonsting/shrink",
-  "moonsting/targets",
+  "QYF795/moonsting/core",
+  "QYF795/moonsting/engine",
+  "QYF795/moonsting/report",
+  "QYF795/moonsting/shrink",
+  "QYF795/moonsting/targets",
   "moonbitlang/core/env",
 }

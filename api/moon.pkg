@@ -5,8 +5,8 @@
 // separate also means the end-to-end tests have a non-main home, which the
 // toolchain requires for blackbox tests.
 import {
-  "moonsting/core",
-  "moonsting/engine",
-  "moonsting/report",
-  "moonsting/targets",
+  "QYF795/moonsting/core",
+  "QYF795/moonsting/engine",
+  "QYF795/moonsting/report",
+  "QYF795/moonsting/targets",
 }

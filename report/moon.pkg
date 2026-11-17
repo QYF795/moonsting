@@ -6,7 +6,7 @@
 //   html  — a self-contained page, no assets, no network
 // plus a generator that turns a finding into a MoonBit regression test.
 import {
-  "moonsting/core",
-  "moonsting/cov",
-  "moonsting/engine",
+  "QYF795/moonsting/core",
+  "QYF795/moonsting/cov",
+  "QYF795/moonsting/engine",
 }

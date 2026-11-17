@@ -252,14 +252,14 @@ cli/       参数解析
 
 | 位置 | 值 |
 |---|---|
-| GitHub | `github.com/<你的用户名>/moonsting` |
-| `moon.mod` | `name = "moonsting"`（本地开发够用） |
+| GitHub | `github.com/QYF795/moonsting` |
+| `moon.mod` | `name = "QYF795/moonsting"`（已发布到 mooncakes） |
 | CLI | `moonsting run ...` |
 
 mooncakes 要求模块名形如 `<用户名>/<模块名>` 且与账号一致。发布前跑一次：
 
 ```bash
-script/set-user.sh <你的 mooncakes 用户名>
+script/set-user.sh QYF795   # 已执行，改成别的账号时才需要再跑
 ```
 
 它会把 `moon.mod` 改成 `<用户名>/moonsting`，并把全部 `moon.pkg` 里的导入前缀一起改掉（10 个文件，不要手改）。

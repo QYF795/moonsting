@@ -5,13 +5,13 @@
 // splice pool, the seed corpus) is, because at ~10^5 executions the constant
 // factor is the whole ballgame.
 import {
-  "moonsting/core",
-  "moonsting/mutate",
-  "moonsting/corpus",
-  "moonsting/cov",
-  "moonsting/shrink",
-  "moonsting/targets",
-  "moonsting/proc",
+  "QYF795/moonsting/core",
+  "QYF795/moonsting/mutate",
+  "QYF795/moonsting/corpus",
+  "QYF795/moonsting/cov",
+  "QYF795/moonsting/shrink",
+  "QYF795/moonsting/targets",
+  "QYF795/moonsting/proc",
   "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
 }

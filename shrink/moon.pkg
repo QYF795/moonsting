@@ -5,5 +5,5 @@
 // Here the predicate takes a *whole round* of candidates and answers for all of
 // them, so one worker invocation judges dozens of reductions.
 import {
-  "moonsting/core",
+  "QYF795/moonsting/core",
 }
