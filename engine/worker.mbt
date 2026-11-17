@@ -19,9 +19,14 @@ pub fn run_worker(
   let mut i = 0
   while i < inputs.length() {
     let input = @core.parse_hex(inputs[i])
+    @cov.reset()
     let output = case.target().run(input)
     let verdict = case.oracle().check(input, output)
-    let sig = @cov.signature(output, input.length())
+    let sig = if @cov.observed() > 0 {
+      @cov.fingerprint()
+    } else {
+      @cov.signature(output, input.length())
+    }
     let line = i.to_string() +
       "\t" +
       sig.to_string() +

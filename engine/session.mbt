@@ -100,9 +100,14 @@ fn Session::prime(self : Session, extra_seeds : Array[Bytes]) -> Unit {
   let mut i = 0
   while i < seeds.length() {
     let seed = seeds[i]
+    @cov.reset()
     let output = self.case_.target().run(seed)
     self.stats_.record_exec()
-    ignore(self.buckets_.observe(@cov.signature(output, seed.length())))
+    if @cov.observed() > 0 {
+      ignore(self.buckets_.observe(@cov.fingerprint()))
+    } else {
+      ignore(self.buckets_.observe(@cov.signature(output, seed.length())))
+    }
     if self.corpus_.add(seed, 0) {
       self.pool_.push(seed)
     }
@@ -111,9 +116,14 @@ fn Session::prime(self : Session, extra_seeds : Array[Bytes]) -> Unit {
   let mut j = 0
   while j < extra_seeds.length() {
     let seed = extra_seeds[j]
+    @cov.reset()
     let output = self.case_.target().run(seed)
     self.stats_.record_exec()
-    ignore(self.buckets_.observe(@cov.signature(output, seed.length())))
+    if @cov.observed() > 0 {
+      ignore(self.buckets_.observe(@cov.fingerprint()))
+    } else {
+      ignore(self.buckets_.observe(@cov.signature(output, seed.length())))
+    }
     if self.corpus_.add(seed, 0) {
       self.pool_.push(seed)
     }
@@ -156,6 +166,7 @@ fn Session::drive(self : Session) -> Unit {
 ///|
 fn Session::step(self : Session) -> Unit {
   let candidate = self.candidate()
+  @cov.reset()
   let output = self.case_.target().run(candidate)
   self.stats_.record_exec()
   let verdict = self.case_.oracle().check(candidate, output)
@@ -163,8 +174,15 @@ fn Session::step(self : Session) -> Unit {
     self.record(candidate, output, verdict)
   } else {
     self.stats_.record_accept()
-    let sig = @cov.signature(output, candidate.length())
-    if self.buckets_.observe(sig) {
+    // An instrumented target reports the branches it took; an uninstrumented
+    // one reports nothing and gets the weaker shape-based signal instead. The
+    // engine does not need to be told which kind it is looking at.
+    let novel = if @cov.observed() > 0 {
+      self.buckets_.observe(@cov.fingerprint())
+    } else {
+      self.buckets_.observe(@cov.signature(output, candidate.length()))
+    }
+    if novel {
       self.stats_.record_novelty()
       if self.corpus_.add(candidate, 0) {
         self.stats_.record_corpus_add()

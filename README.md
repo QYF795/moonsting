@@ -41,7 +41,9 @@ findings : 3
 | CI 钩子 `--fail-on-finding`（有 finding 则非零退出） | ✅ |
 | CLI：`run` / `list` / `replay` / `minimize` | ✅ |
 | 同 seed 跨后端逐字节一致（wasm-gc / js / native） | ✅ 已验证 |
-| 覆盖率产物解析（`cov/EdgeSet` + 测试） | ✅ 已实现，未接线到引擎 |
+| 覆盖率反馈：手写插桩（`@cov.hit`）→ 路径指纹 | ✅（示例 target 已插桩） |
+| 无插桩 target 自动回退到"输出形状"反馈 | ✅ |
+| 编译器覆盖率产物（`cov/EdgeSet`）接进引擎 | ❌ 见架构文档：普通二进制不落盘 |
 | 进程隔离（`--isolate`，native）：批次 worker + 崩溃输入定位 | ✅ |
 | 隔离模式下的批量最小化（一轮 ddmin = 一次 worker，`--no-shrink` 可关） | ✅ |
 | 语料持久化（`--corpus-dir`） | ❌ 需要文件系统 API |
@@ -73,6 +75,22 @@ moon run cli --target wasm-gc -- list
 参数：`--target` `--seed` `--max-execs` `--time 5s` `--max-input` `--max-findings` `--seed-input`（可重复）`--json` `--html` `--emit-test` `--dump-corpus` `--isolate` `--batch-size` `--no-shrink` `--fail-on-finding` `--quiet`。
 
 > 小提醒：被 `Ctrl-C` 或强杀打断的运行，可能在当前目录留下 `.moonsting-*` 临时文件（批次、结果、启动脚本）。它们已在 `.gitignore` 里，手动删除即可——没有 `readdir` 就没法在启动时自动清理，这是 stdlib 的边界，不是懒得写。
+
+## 反馈信号：插桩优先，形状兜底
+
+引擎不需要知道 target 有没有插桩——它只看"这次执行报了没有"：
+
+- **插桩过的 target**（`@cov.hit(id)`）→ 用本次执行的**路径指纹**（命中集合的哈希）做新颖性判断。同一批分支、不同顺序算同一条路径，这是有意的：顺序噪声会让语料爆掉。
+- **没插桩的 target** → 回退到"输出形状"（数字折叠成 `#` 后的哈希）。
+
+两条路径在同一份代码里，差别肉眼可见（20,000 次执行）：
+
+| target | 反馈 | 语料 | 独立签名 |
+|---|---|---|---|
+| `csv`（已插桩，10 个状态位） | 路径指纹 | **613** | 611 |
+| `json`（未插桩） | 输出形状 | 237 | 231 |
+
+为什么不用编译器自带的覆盖率：`moon build --enable-coverage` 出来的二进制**跑完不落盘**（`moon test --enable-coverage` 才会写 `moonbit_coverage_*.txt`），fuzzer 没法逐次执行读取。所以选择手写插桩——AFL 管这叫 `__afl_manual`，libFuzzer 管这叫用户自定义计数器。粒度由插桩者决定，对解析器来说通常比编译器块覆盖更有意义：哪些分支值得区分，写 target 的人最清楚。
 
 ## 四种 oracle
 

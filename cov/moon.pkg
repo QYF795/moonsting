@@ -1,19 +1,18 @@
-// moonsting coverage.
+// moon-fuzz coverage.
 //
-// Two backends, deliberately keeping the *interface* stable so the feedback
-// source can be swapped without touching the engine:
+// Two feedback sources, both behind the same idea of "a signature the engine
+// can compare":
 //
-//   Buckets  -no compiler support needed: a signature is derived from the
-//              observable result (output content, output length class, error
-//              class). It is weak, but it runs on every backend and it is the
-//              default, so `moonx fuzz run` works out of the box.
+//   recorder — manual instrumentation (`@cov.hit(id)` at branches the target
+//              author chose). Exact, per execution, works on every backend.
+//              This is what instrumented targets get.
 //
-//   Edges    -real edge identifiers from an instrumented build
-//              (`moon test --enable-coverage` writes `moonbit_coverage_*.txt`).
-//              The parser is tolerant on purpose: the artifact format is
-//              internal and will change, so anything that cannot be parsed is
-//              skipped rather than fatal, and the location text is hashed into
-//              an edge id instead of being interpreted.
+//   buckets  — no instrumentation needed: a signature derived from the output
+//              shape. Weak, but it is what an uninstrumented target gets, so
+//              `moonx fuzz run` never requires the user to touch their code.
+//
+// The compiler's own coverage artifacts are parsed in `edges.mbt`; they are a
+// test-run feature and are not wired into the engine (see the architecture doc).
 import {
   "moonsting/core",
   "moonbitlang/core/encoding/utf8",

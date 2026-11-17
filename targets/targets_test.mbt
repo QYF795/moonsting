@@ -76,3 +76,13 @@ test "catalog: names, lookup and seeds" {
     None => abort("json case missing")
   }
 }
+
+///|
+test "coverage: one target is instrumented, the other is not" {
+  @cov.reset()
+  ignore(@targets.varint_fast(b"\x80\x01"))
+  assert_true(@cov.observed() > 0)
+  @cov.reset()
+  ignore(@targets.json_validate(b"{}"))
+  assert_eq(@cov.observed(), 0)
+}

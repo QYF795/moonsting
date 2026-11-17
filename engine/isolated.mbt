@@ -218,6 +218,7 @@ fn Session::run_batch_inproc(self : Session, batch : Array[Bytes]) -> Unit {
   let mut i = 0
   while i < batch.length() {
     let input = batch[i]
+    @cov.reset()
     let output = self.case_.target().run(input)
     self.stats_.record_exec()
     let verdict = self.case_.oracle().check(input, output)
@@ -225,8 +226,12 @@ fn Session::run_batch_inproc(self : Session, batch : Array[Bytes]) -> Unit {
       self.record(input, output, verdict)
     } else {
       self.stats_.record_accept()
-      let sig = @cov.signature(output, input.length())
-      if self.buckets_.observe(sig) {
+      let novel = if @cov.observed() > 0 {
+        self.buckets_.observe(@cov.fingerprint())
+      } else {
+        self.buckets_.observe(@cov.signature(output, input.length()))
+      }
+      if novel {
         self.stats_.record_novelty()
         if self.corpus_.add(input, 0) {
           self.stats_.record_corpus_add()

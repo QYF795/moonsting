@@ -6,4 +6,5 @@
 // demonstrated end-to-end without depending on any external package.
 import {
   "moonsting/core",
+  "moonsting/cov",
 }
