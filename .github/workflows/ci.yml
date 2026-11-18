@@ -6,20 +6,34 @@ on:
   pull_request:
 
 jobs:
+  # Pure-logic jobs: no C toolchain, no child processes. These are the ones that
+  # must never be flaky, so they run on all three platforms.
   test:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: install MoonBit
+      - name: install MoonBit (unix)
+        if: runner.os != 'Windows'
         run: curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
 
-      - name: add MoonBit to PATH
+      - name: install MoonBit (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: iwr -useb https://cli.moonbitlang.com/install/powershell.ps1 | iex
+
+      - name: add MoonBit to PATH (unix)
+        if: runner.os != 'Windows'
         run: echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: add MoonBit to PATH (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: echo "$env:USERPROFILE\.moon\bin" >> $env:GITHUB_PATH
 
       - name: toolchain version
         run: moon version --all
@@ -35,7 +49,33 @@ jobs:
       - name: test (js)
         run: moon test --target js
 
-# The native backend and everything under `--isolate` are exercised locally on
-# Windows (see docs/验收.md): they need a C toolchain and spawn child processes,
-# neither of which is worth making the first CI run depend on. The wasm-gc and js
-# jobs cover the pure logic, which is where the tests live.
+  # The native backend links C, and --isolate spawns child processes. Both are
+  # exercised here on the two Unix runners, which ship a C compiler; Windows
+  # native is verified locally (it needs MSVC, see docs/验收.md).
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: install MoonBit
+        run: curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+
+      - name: add MoonBit to PATH
+        run: echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: check (native)
+        run: moon check --target native --deny-warn
+
+      - name: test (native)
+        run: moon test --target native
+
+      # A crash in the target must not take the run with it. This is the one
+      # behaviour that only exists on the native backend, so it gets a smoke
+      # test here rather than being taken on trust.
+      - name: isolation smoke test
+        run: |
+          moon run cli --target native -- run --target varint --max-execs 2000 --isolate --no-shrink | tail -5
