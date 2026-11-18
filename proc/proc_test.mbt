@@ -40,9 +40,9 @@ test "proc: streaming write is visible after flush" {
 #cfg(target="native")
 test "proc: system returns the exit code of a failing command" {
   let ok = @proc.run_command("cmd /c exit 0")
-  assert_true(ok == 0)
+  assert_true(ok == 0, msg="successful command returned " + ok.to_string())
   let bad = @proc.run_command("cmd /c exit 3")
-  assert_true(bad != 0)
+  assert_true(bad != 0, msg="failing command returned " + bad.to_string())
 }
 
 ///|
