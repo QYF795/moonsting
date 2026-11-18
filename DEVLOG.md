@@ -492,3 +492,28 @@
 - **不是所有格式都适合往返**：ARFF 的注释、空白、属性顺序都自由，逐字节还原是伪目标。换成"注释不影响摘要"这种不变量，成本低、语义清楚。
 - **严格性决定 oracle 能不能用**：宽容的 CSV 解析器 + 往返性质 = 每个带多余引号的输入都变成 finding。和 urlenc 那条一样：先定严格，再谈往返。
 - 两个 bug 都是**单元测试与 fuzz 各抓到一个**：前者抓"3 列"，后者抓"0 行"。这也说明为什么两者都要有。
+---
+
+### D16 · 11/18 · CI 扩到三平台 + native job（以及一次"假修复"）
+
+**今日目标**
+- 让 CI 覆盖 Windows 与 native 后端，把"本机通过"变成"每台机器都通过"
+
+**实际完成**
+- `.github/workflows/ci.yml` 拆成两个 job：
+  - `test`：ubuntu / macos / **windows** × wasm-gc + js（纯逻辑，无 C 工具链）
+  - `native`：ubuntu / macos × `check --deny-warn` + 110 个测试 + **隔离冒烟**（跑一次 `--isolate`，崩了 CI 就红）
+- 最新一轮 5 个 job 全绿：windows 50s、macos 30s、ubuntu 13s、native ubuntu 17s、native macos 34s
+- Windows native 仍留在本机验证（需要 MSVC），理由写在 workflow 注释里
+
+**两次失败，一次假修复**
+
+| 现象 | 根因 | 修法 |
+|---|---|---|
+| ubuntu / macos 的 native job 都挂在 `proc: system returns the exit code of a failing command` | 测试里写死了 `cmd /c exit 0`——那是 Windows 的 shell | 按 `is_windows()` 分支；POSIX 用绝对路径 `/usr/bin/true`、`/usr/bin/false`（裸 `true` 在 macOS runner 上返回 127 = command not found，32512 = 127<<8） |
+| 我以为修好了，CI 仍然红 | 那次 commit 的字符串替换**根本没匹配**（`moon fmt` 改过缩进），git 说 "nothing to commit" 我却在下一次提交里写了"platform aware" | 用编辑工具改，改完 `git diff` 确认；CI 日志里同一行原样报错才暴露 |
+
+**关键决策**
+- **隔离要有冒烟测试，而不是只靠本机演示**：`--isolate` 只在 native 存在，一旦坏了没有任何测试会发现；CI 里跑一次 2000 次的 `--isolate` 就是它的门禁。
+- **Windows native 不进 CI 是显式决定**：GitHub 的 windows runner 有 MSVC，但第一次就让三平台 native 全绿的风险不划算；本机 110 个测试是证据，文档里写清楚哪部分是 CI 覆盖、哪部分是本机覆盖。
+- macOS runner 有容量排队问题（出现过 `job was not acquired by runner`），这属于基础设施，不是代码；真出现时重跑即可，不为了它把 job 设为 continue-on-error（那会把真实的 macOS 失败也吞掉）。
