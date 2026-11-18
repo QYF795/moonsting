@@ -39,9 +39,19 @@ test "proc: streaming write is visible after flush" {
 ///|
 #cfg(target="native")
 test "proc: system returns the exit code of a failing command" {
-  let ok = @proc.run_command("cmd /c exit 0")
+  // The shell differs per platform; the contract does not. Absolute paths keep
+  // PATH out of the picture (a bare `true` came back as 127 on macOS runners).
+  let ok = if @proc.is_windows() {
+    @proc.run_command("cmd /c exit 0")
+  } else {
+    @proc.run_command("/usr/bin/true")
+  }
   assert_true(ok == 0, msg="successful command returned " + ok.to_string())
-  let bad = @proc.run_command("cmd /c exit 3")
+  let bad = if @proc.is_windows() {
+    @proc.run_command("cmd /c exit 3")
+  } else {
+    @proc.run_command("/usr/bin/false")
+  }
   assert_true(bad != 0, msg="failing command returned " + bad.to_string())
 }
 
