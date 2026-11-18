@@ -242,19 +242,18 @@ pub fn html(session : @engine.Session) -> String {
 }
 
 ///|
-/// What the instrumentation saw, and — more useful — what it never saw.
+/// What the instrumentation saw, and — more useful — what it never took.
 ///
-/// Ids are allocated in dense per-target ranges by convention (600s for base64,
-/// 700s for tlv, …), so a hole inside the observed span is a branch that no input
-/// reached. That is the number an instrumenter wants: it points at dead branches
-/// and at instrumentation that is unreachable by construction.
+/// When the target declares the ids it assigned, a missing id means a branch no
+/// input reached. Without declarations the report can only point at holes in the
+/// observed span, which conflates "unreached" with "never assigned".
 pub fn coverage_report(ids : Array[Int32]) -> String {
   if ids.length() == 0 {
     return "coverage : none (target is not instrumented)"
   }
   let sorted = @cov.sorted_seen_from(ids)
   let spans = @cov.ranges(sorted)
-  let holes = @cov.gaps(sorted)
+  let declared = @cov.declared_list()
   let sb = StringBuilder()
   sb.write_string(
     "coverage : " +
@@ -263,14 +262,44 @@ pub fn coverage_report(ids : Array[Int32]) -> String {
     @cov.format_ranges(spans) +
     ")\n",
   )
-  if holes.length() == 0 {
-    sb.write_string("gaps     : none inside the observed span\n")
+  if declared.length() > 0 {
+    let missing = @cov.unreached(sorted)
+    if missing.length() == 0 {
+      sb.write_string(
+        "branches : all " +
+        declared.length().to_string() +
+        " declared ids were reached\n",
+      )
+    } else {
+      sb.write_string(
+        "unreached: " +
+        @cov.format_ranges(@cov.ranges(missing)) +
+        " (" +
+        missing.length().to_string() +
+        " of " +
+        declared.length().to_string() +
+        " declared branches never taken)\n",
+      )
+    }
+    let stray = @cov.undeclared_hits(sorted)
+    if stray.length() > 0 {
+      sb.write_string(
+        "warning  : hit ids that were never declared: " +
+        @cov.format_ranges(@cov.ranges(stray)) +
+        "\n",
+      )
+    }
   } else {
-    sb.write_string(
-      "gaps     : " +
-      @cov.format_ranges(holes) +
-      " (inside the observed span, never hit: either a branch nobody reached or an id range that was never assigned)\n",
-    )
+    let holes = @cov.gaps(sorted)
+    if holes.length() == 0 {
+      sb.write_string("gaps     : none inside the observed span\n")
+    } else {
+      sb.write_string(
+        "gaps     : " +
+        @cov.format_ranges(holes) +
+        " (no declarations: could be unreached branches or unassigned ids)\n",
+      )
+    }
   }
   sb.to_string()
 }

@@ -14,6 +14,7 @@ pub(all) enum Shape {
   Json
   Base64
   Urlenc
+  Protobuf
   Csv
   Binary
 }
@@ -45,6 +46,8 @@ pub fn detect(data : Bytes) -> Shape {
     Shape::Urlenc
   } else if b64_only {
     Shape::Base64
+  } else if looks_protobuf(data) {
+    Shape::Protobuf
   } else if looks_like_csv(data) {
     Shape::Csv
   } else {
@@ -84,6 +87,7 @@ pub fn Shape::label(self : Shape) -> String {
     Shape::Json => "json"
     Shape::Base64 => "base64"
     Shape::Urlenc => "urlenc"
+    Shape::Protobuf => "protobuf"
     Shape::Csv => "csv"
     Shape::Binary => "binary"
   }

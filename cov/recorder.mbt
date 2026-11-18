@@ -300,3 +300,89 @@ fn int_of_str(text : String) -> Int32 {
   }
   value
 }
+
+///|
+/// The ids a target actually assigned, in its own instrumentation. Without this,
+/// a hole in the observed ids is ambiguous: it can be a branch nobody reached
+/// *or* an id that was never handed out. Declaring the exact set makes the
+/// difference visible, and also catches a typo'd `hit(601)` in a 600-range target.
+let declared_ : Array[Int32] = []
+
+///|
+pub fn declare_ids(ids : Array[Int32]) -> Unit {
+  let mut i = 0
+  while i < ids.length() {
+    let id = ids[i]
+    let mut known = false
+    let mut k = 0
+    while k < declared_.length() {
+      if declared_[k] == id {
+        known = true
+      }
+      k = k + 1
+    }
+    if !known {
+      declared_.push(id)
+    }
+    i = i + 1
+  }
+}
+
+///|
+pub fn declared_list() -> Array[Int32] {
+  sorted_seen_from(declared_)
+}
+
+///|
+pub fn clear_declared() -> Unit {
+  declared_.clear()
+}
+
+///|
+/// Declared ids that were never hit: branches this run did not reach.
+pub fn unreached(ids : Array[Int32]) -> Array[Int32] {
+  let out : Array[Int32] = []
+  let declared = declared_list()
+  let mut i = 0
+  while i < declared.length() {
+    let id = declared[i]
+    let mut hit = false
+    let mut k = 0
+    while k < ids.length() {
+      if ids[k] == id {
+        hit = true
+      }
+      k = k + 1
+    }
+    if !hit {
+      out.push(id)
+    }
+    i = i + 1
+  }
+  out
+}
+
+///|
+/// Observed ids that were never declared: a typo, or a target that forgot to
+/// declare its range.
+pub fn undeclared_hits(ids : Array[Int32]) -> Array[Int32] {
+  let out : Array[Int32] = []
+  let declared = declared_list()
+  let mut k = 0
+  while k < ids.length() {
+    let id = ids[k]
+    let mut inside = false
+    let mut s = 0
+    while s < declared.length() {
+      if declared[s] == id {
+        inside = true
+      }
+      s = s + 1
+    }
+    if !inside {
+      out.push(id)
+    }
+    k = k + 1
+  }
+  sorted_seen_from(out)
+}

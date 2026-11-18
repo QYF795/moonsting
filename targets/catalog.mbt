@@ -179,6 +179,43 @@ fn arff_case() -> Case {
 }
 
 ///|
+fn fixed_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"widths: 6,4\nname  age \nalice 30  \n", b"widths: 3\nabc\ndef\n",
+  ]
+  let target = @core.Target::new("fixed.check", seeds, fixed_check)
+  Case::new(
+    "fixed",
+    target,
+    @core.Oracle::Custom("fixed.roundtrip", fixed_roundtrip_holds),
+  )
+}
+
+///|
+fn ini_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"[db]\nhost = localhost\nport = 5432\n", b"; comment\n[a]\nx=1\n",
+  ]
+  let target = @core.Target::new("ini.summary", seeds, ini_summary)
+  Case::new(
+    "ini",
+    target,
+    @core.Oracle::Custom("ini.comment-invariant", ini_comment_invariant),
+  )
+}
+
+///|
+fn props_case() -> Case {
+  let seeds : Array[Bytes] = [b"a=1\nb=two\n", b"path=C:\\\\tmp\n"]
+  let target = @core.Target::new("props.check", seeds, prop_check)
+  Case::new(
+    "props",
+    target,
+    @core.Oracle::Custom("props.roundtrip", prop_roundtrip_holds),
+  )
+}
+
+///|
 pub fn catalog() -> Array[Case] {
   [
     json_case(),
@@ -193,6 +230,9 @@ pub fn catalog() -> Array[Case] {
     rle_case(),
     csv_strict_case(),
     arff_case(),
+    fixed_case(),
+    ini_case(),
+    props_case(),
     boom_case(),
   ]
 }
@@ -220,4 +260,48 @@ pub fn find(name : String) -> Case? {
     i = i + 1
   }
   None
+}
+
+///|
+/// The instrumentation ids this case actually assigns, by case name.
+///
+/// Kept next to the catalog rather than inside each constructor so that adding a
+/// target means touching one table, and so the session can scope the declaration
+/// to the case it is about to run (declarations are global state).
+pub fn declared_for(name : String) -> Array[Int32] {
+  if name == "csv" {
+    [200, 202, 203, 204, 205, 206, 207, 208, 209, 210]
+  } else if name == "varint" {
+    [300, 312]
+  } else if name == "csvstrict" {
+    [500, 501, 502, 503, 504, 505, 506, 507, 508, 509, 510, 521, 522]
+  } else if name == "arff" {
+    [530, 531, 532, 533, 534, 535, 536, 537, 538, 539, 540, 550]
+  } else if name == "base64" {
+    [600, 601, 602, 603, 610, 611, 612]
+  } else if name == "tlv" {
+    [700, 701, 702, 703, 704, 705, 706, 710, 711, 712]
+  } else if name == "utf8" {
+    [
+      800, 801, 802, 803, 804, 805, 806, 807, 808, 810, 811, 812, 813, 814, 815,
+      816, 817, 818, 819, 820, 821, 822, 823, 824,
+    ]
+  } else if name == "urlenc" {
+    [900, 901, 902, 903, 904, 905, 906, 910, 911, 912]
+  } else if name == "protobuf" {
+    [
+      920, 921, 922, 923, 924, 925, 926, 927, 928, 929, 930, 931, 932, 933, 934,
+      940, 941, 942,
+    ]
+  } else if name == "rle" {
+    [950, 951, 952, 953, 954, 955, 956, 957, 958, 959, 960, 961, 962]
+  } else if name == "fixed" {
+    [560, 561, 562, 563, 564, 565, 566, 567, 568, 569, 570, 571, 580, 581]
+  } else if name == "ini" {
+    [620, 621, 622, 623, 624, 625, 626, 627, 640]
+  } else if name == "props" {
+    [650, 651, 652, 653, 654, 655, 656, 657, 658, 670, 671]
+  } else {
+    []
+  }
 }

@@ -53,3 +53,17 @@ test "rle: a run stream can mix both encodings" {
   // RLE(1, value 3) then packed(1 group).
   assert_eq(@targets.rle_check(b"\x02\x03\x03\x01\x02\x03\x04\x05"), "ok:9")
 }
+
+///|
+/// Found by moonsting itself on 2026-11-18: `count * RLE_WIDTH` overflowed to a
+/// negative number, which made the next header offset negative and indexed
+/// before the buffer. Isolated mode reported it as `[crash] input=021eefbbffbf256e`.
+test "rle: overflow in the run count is rejected, not a crash" {
+  let evil = @core.parse_hex("021eefbbffbf256e")
+  assert_eq(@targets.rle_check(evil), "err")
+  // A count that does not fit the remaining bytes, without overflow.
+  let huge = @core.parse_hex("feffffff0f00")
+  assert_eq(@targets.rle_check(huge), "err")
+  // A well-formed single run still parses.
+  assert_true(@targets.rle_check(@core.parse_hex("021e")) != "err")
+}

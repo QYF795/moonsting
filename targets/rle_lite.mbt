@@ -41,6 +41,12 @@ struct RleRun {
 /// Minimal-varint reader, same rule as the protobuf target: a multi-byte varint
 /// must not end with a zero payload byte.
 fn rle_varint(input : Bytes, start : Int32) -> (Int64, Int32)? {
+  // A caller that computed a bad offset must not be able to index out of bounds:
+  // this is exactly what the fuzzer found on 11/18 (input 021eefbbffbf256e).
+  if start < 0 || start > input.length() {
+    @cov.hit(960)
+    return None
+  }
   let mut value : Int64 = 0
   let mut shift = 0
   let mut i = start
@@ -80,19 +86,24 @@ pub fn rle_parse(input : Bytes) -> Array[RleRun]? {
     }
     let (raw, after_header) = header
     let packed = (raw & 1L) == 1L
-    let count = (raw >> 1).to_int()
-    if count <= 0 {
+    // The count has to be bounded before it is multiplied: `count * RLE_WIDTH`
+    // overflowed to a negative number, which turned `next` negative and made the
+    // next iteration index from before the buffer.
+    let count64 = raw >> 1
+    if count64 <= 0L || count64 > 1_000_000L {
       @cov.hit(954)
       return None
     }
+    let count = count64.to_int()
     let bytes : Array[Byte] = []
     let mut next = after_header
     if packed {
-      let need = count * RLE_WIDTH
-      if after_header + need > n {
+      let need64 = count64 * RLE_WIDTH.to_int64()
+      if need64 > (n - after_header).to_int64() {
         @cov.hit(955)
         return None
       }
+      let need = need64.to_int()
       let mut k = 0
       while k < need {
         bytes.push(input[after_header + k])
@@ -116,6 +127,10 @@ pub fn rle_parse(input : Bytes) -> Array[RleRun]? {
       @cov.hit(959)
     }
     runs.push({ packed, count, bytes, })
+    if next <= i {
+      @cov.hit(961)
+      return None
+    }
     i = next
   }
   Some(runs)

@@ -23,6 +23,10 @@ pub struct Session {
 /// The one place a session is constructed, so the in-process and isolated
 /// runners cannot drift apart.
 fn make(case : @targets.Case, config : @core.Config) -> Session {
+  // Declarations are global state, so scope them to the case about to run:
+  // otherwise `--cov-report` lists every other target's branches as unreached.
+  @cov.clear_declared()
+  @cov.declare_ids(@targets.declared_for(case.name()))
   {
     case_: case,
     config_: config,
