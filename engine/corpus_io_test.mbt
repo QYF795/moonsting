@@ -46,7 +46,7 @@ test "corpus: save then load round trips" {
     k = k + 1
   }
   @proc.remove_file(base)
-  ignore(@proc.run_command("rmdir \"" + dir + "\" > NUL 2>&1"))
+  ignore(@proc.run_command(@proc.rmdir_command(dir)))
 }
 
 ///|
@@ -60,7 +60,7 @@ test "corpus: a gap truncates the load" {
   assert_eq(loaded.length(), 1)
   @proc.remove_file(@engine.corpus_file(dir, 1))
   @proc.remove_file(@engine.corpus_file(dir, 3))
-  ignore(@proc.run_command("rmdir \"" + dir + "\" > NUL 2>&1"))
+  ignore(@proc.run_command(@proc.rmdir_command(dir)))
 }
 
 ///|

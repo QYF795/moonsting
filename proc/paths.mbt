@@ -112,3 +112,14 @@ pub fn shell_path(path : String) -> String {
   }
   sb.to_string()
 }
+
+///|
+/// Remove an empty directory. The redirection syntax differs per shell, and
+/// getting it wrong leaves a file literally named `NUL` behind on POSIX.
+pub fn rmdir_command(dir : String) -> String {
+  if is_windows() {
+    "rmdir \"" + dir + "\" > NUL 2>&1"
+  } else {
+    "rmdir \"" + dir + "\" 2>/dev/null"
+  }
+}
