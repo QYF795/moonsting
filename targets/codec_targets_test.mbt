@@ -57,3 +57,15 @@ test "protobuf: varint decoding is exact at the boundaries" {
   )
   assert_true(@targets.pb_varint(b"\x80", 0) is None)
 }
+
+///|
+/// Found by the field-level mutator on 2026-11-20: a six-byte tag varint was
+/// narrowed to Int32 *before* the field-number range check, so a truncated
+/// number passed validation and re-serialized to different bytes.
+test "protobuf: an oversized tag varint is rejected, not truncated" {
+  let evil = @core.parse_hex("9080a4da80253d")
+  assert_eq(@targets.pb_check(evil), "err")
+  // A tag at the largest legal field number still round trips.
+  let legal = @core.parse_hex("f8ffffff0f01")
+  assert_true(@targets.pb_check(legal) != "err")
+}

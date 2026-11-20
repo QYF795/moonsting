@@ -96,12 +96,8 @@ fn Mutator::structured(self : Mutator, data : Array[Byte]) -> Unit {
       )
     Shape::Base64 => self.apply(data, base64_mutate(self.rng_, current))
     Shape::Urlenc => self.apply(data, urlenc_mutate(self.rng_, current))
-    Shape::Protobuf =>
-      match proto_mutate(self.rng_, current) {
-        Some(next) => self.apply(data, next)
-        None => self.havoc(data)
-      }
-    Shape::Binary => self.apply(data, length_mutate(self.rng_, current))
+    Shape::Protobuf => self.fielded(data, current)
+    Shape::Binary => self.fielded(data, current)
   }
 }
 
@@ -113,5 +109,40 @@ fn Mutator::apply(self : Mutator, data : Array[Byte], next : Bytes) -> Unit {
   while i < next.length() && data.length() < self.max_len_ {
     data.push(next[i])
     i = i + 1
+  }
+}
+
+///|
+/// Wire-format mutation for binary shapes: protobuf fields and TLV records share
+/// the "length prefix decides everything" property, so whichever parse succeeds
+/// first gets the structured treatment; if neither does, fall back to a length
+/// byte poke, which is still the most productive thing to do to a length-prefixed
+/// blob.
+fn Mutator::fielded(
+  self : Mutator,
+  data : Array[Byte],
+  current : Bytes,
+) -> Unit {
+  let prefer_proto = looks_protobuf(current)
+  let first = if prefer_proto {
+    proto_mutate(self.rng_, current)
+  } else {
+    tlv_mutate(self.rng_, current)
+  }
+  match first {
+    Some(next) => {
+      self.apply(data, next)
+      return
+    }
+    None => ()
+  }
+  let second = if prefer_proto {
+    tlv_mutate(self.rng_, current)
+  } else {
+    proto_mutate(self.rng_, current)
+  }
+  match second {
+    Some(next) => self.apply(data, next)
+    None => self.apply(data, length_mutate(self.rng_, current))
   }
 }

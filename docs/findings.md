@@ -160,3 +160,47 @@ Total tests: 48, passed: 48, failed: 0.
 ```
 
 覆盖的是**契约**而不是覆盖率数字：RNG 同 seed 同流、`shape` 折叠数字、语料去重、ddmin 收敛到 1 字节、JSON/CSV 的接受/拒绝边界、差分对在 32 位内一致/32 位外分歧、engine 同 seed 复现同一 finding、每个 finding 能独立 replay、报告三种格式自洽。
+
+---
+
+## 5. 标准库体检：MoonBit `@json`
+
+> 这是本项目唯一一个"被测对象不是我们自己写的东西"的 target。目的不是再找 bug，而是回答一个可以引用的问题：**MoonBit 标准库的 JSON 解析器扛不扛得住敌意输入。**
+
+### 5.1 方法
+
+`stdjson` target 把字节解成文本（非 UTF-8 直接判 `err:utf8`），然后用**标准库自洽性**当 oracle：
+
+1. `@json.valid(s)` 说合法，`@json.parse(s)` 就必须成功；
+2. `parse` 成功的东西，`stringify` 出来必须还能被 `parse` 接受。
+
+任一条不成立，就报 `inconsistent:valid-but-parse-failed` 或 `inconsistent:restringify-invalid`。
+
+种子里既有权角（`1e999`、`-0.0`、18 位整数）、也有结构（嵌套对象/数组）、还有转义（`\u0041`、surrogate pair、`\n\t\"`）。
+
+### 5.2 结果
+
+| 运行 | 执行数 | 语料 / 签名 | finding |
+|---|---|---|---|
+| 进程内（wasm-gc） | 50,000 | 70 / 68 | **0** |
+| 隔离（native，`--jobs 2`） | 20,000 | 63 / 61 | **0**（无 panic） |
+
+也就是说：**5 万条敌意输入，标准库既没 panic，也没出现 `valid` 与 `parse` 的分歧，`stringify` 的输出也始终能再解析。**
+
+### 5.3 复现
+
+```bash
+moon run cli --target wasm-gc -- run --target stdjson --max-execs 50000
+moon run cli --target native -- run --target stdjson --max-execs 20000 --isolate --no-shrink --jobs 2
+```
+
+### 5.4 这条结论的边界（重要）
+
+- 它证明的是**自洽性**，不是**规范符合性**。一个"总是接受一切"的解析器完全自洽，但不符合 JSON 规范——那个方向要靠外部参考实现做差分，本项目没有做。
+- 它只覆盖 `parse` / `valid` / `stringify` 三个入口，没有测 `derive(FromJson)` 派生路径。
+- 标准库不能插桩，所以这里的"覆盖率"只有 4 个我们自己的 id；语料靠输出形状（类型 + 尺寸档）区分，68 个签名不代表 68 条标准库内部路径。
+- 一次不崩不等于永远不崩。这里给的是"5 万条 × 两个后端"的证据，不是证明。
+
+### 5.5 为什么仍然值得放进验收材料
+
+因为它是**可被引用的负面结论**：标准库在敌意输入下没露问题，这件事本身对生态有意义，而且它把一个"感觉应该没问题"的假设变成了一条能重跑的命令。如果以后有人在上游改了 `@json`，把 `--target stdjson` 挂进 CI 就能立刻发现回归。

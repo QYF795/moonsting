@@ -63,12 +63,16 @@ pub fn pb_parse(input : Bytes) -> Array[PbField]? {
       None => return None
     }
     let (key_value, after_key) = key
-    let number = (key_value >> 3).to_int()
-    let wire = (key_value & 7L).to_int()
-    if number < 1 || number > 536870911 {
+    // Validate in Int64 space: narrowing first let a 6-byte tag truncate into a
+    // plausible-looking field number, which then re-serialized to different
+    // bytes (found by the field-level mutator: 9080a4da80253d).
+    let number64 = key_value >> 3
+    if number64 < 1L || number64 > 536870911L {
       @cov.hit(924)
       return None
     }
+    let number = number64.to_int()
+    let wire = (key_value & 7L).to_int()
     if wire != 0 && wire != 1 && wire != 2 && wire != 5 {
       @cov.hit(925)
       return None
