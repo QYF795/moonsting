@@ -185,6 +185,8 @@ Total tests: 48, passed: 48, failed: 0.
 | 进程内（wasm-gc） | 50,000 | 70 / 68 | **0** |
 | 隔离（native，`--jobs 2`） | 20,000 | 63 / 61 | **0**（无 panic） |
 
+更长的跑（20 万 × 三后端 + 隔离，共 60 万次，含阳性对照）见 **5.6**。
+
 也就是说：**5 万条敌意输入，标准库既没 panic，也没出现 `valid` 与 `parse` 的分歧，`stringify` 的输出也始终能再解析。**
 
 ### 5.3 复现
@@ -204,3 +206,36 @@ moon run cli --target native -- run --target stdjson --max-execs 20000 --isolate
 ### 5.5 为什么仍然值得放进验收材料
 
 因为它是**可被引用的负面结论**：标准库在敌意输入下没露问题，这件事本身对生态有意义，而且它把一个"感觉应该没问题"的假设变成了一条能重跑的命令。如果以后有人在上游改了 `@json`，把 `--target stdjson` 挂进 CI 就能立刻发现回归。
+
+### 5.6 长时跑记录（2026-11-20）
+
+一次 60 万次执行的标准库体检，四种配置 + 两个阳性对照。机器：Windows 11 / Ryzen（与全文其它数据同一台）。
+
+| # | 后端 | 模式 | 执行数 | 耗时 | exec/s | 语料 / 签名 | finding |
+|---|---|---|---|---|---|---|---|
+| A | wasm-gc | 进程内 | 200,000 | 1.52 s | 131,752 | 90 / 88 | **0** |
+| B | native | 进程内 | 200,000 | 4.71 s | 42,507 | 90 / 88 | **0** |
+| C | js | 进程内 | 200,000 | 4.87 s | 41,109 | 90 / 88 | **0** |
+| D | native | 隔离，`--jobs 4 --batch-size 2048` | 200,000 | 28.5 s | 7,010 | 80 / 78 | **0** |
+
+三件事值得单独说：
+
+1. **三个后端的探索完全一致**：A、B、C 的语料都是 90 条 / 88 个签名 / 82 条新路径，逐项相同。跨后端确定性不只体现在 JSONL 上，也体现在"走到的路径集合"上。
+2. **隔离模式少走了 10 条**：80 vs 90。原因是批次调度与逐条调度不同——一批里同一个输入被改两次，和逐条调度时的变异序列不是一回事。这不是 bug，但说明"隔离模式的覆盖 ≠ 进程内覆盖"，两者不能互相替代。
+3. **零 finding 必须配阳性对照**，否则可能是工具坏了：
+
+| 对照 | 配置 | 结果 |
+|---|---|---|
+| `varint`（已知 32 位截断） | wasm-gc 进程内，200,000 次 | **3 条 finding**（`ffffffff34`、`ff88ff8822`、`bbbdffbc5d`） |
+| `boom`（必崩输入 `de`） | native 隔离，1,500 次 | **1 条 crash**（`de`，批次内第 9 个输入） |
+
+同一套工具、同一轮跑，在标准库上给出 0，在已知有 bug 的 target 上照常给出 3 和 1。所以"0"是结论，不是故障。
+
+复现：
+
+```bash
+moon run cli --target wasm-gc -- run --target stdjson --max-execs 200000
+moon run cli --target js      -- run --target stdjson --max-execs 200000
+moon run cli --target native  -- run --target stdjson --max-execs 200000 --isolate --no-shrink --jobs 4 --batch-size 2048
+moon run cli --target wasm-gc -- run --target varint  --max-execs 200000
+```
