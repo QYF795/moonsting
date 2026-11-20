@@ -134,6 +134,7 @@ moon run cli --target wasm-gc -- list
 | `fixed` | `fixed.roundtrip` | 序列化(解析(x)) 逐字节等于 x | 列宽合计不符、行长度不符、前导零 |
 | `ini` | `ini.comment-invariant` | 追加注释不得改变摘要 | 分区外键值、未闭合分区、空键 |
 | `props` | `props.roundtrip` | 同上（转义必须规范化） | 未转义空格/等号、未知转义、空行 |
+| `stdjson` | `stdjson.consistency` | **标准库** `@json.valid` 与 `@json.parse` 必须一致；`stringify` 的输出必须能再解析 | 标准库自身的 valid/parse 分歧、panic |
 | `boom` | `same` | 什么都不判 | 演示崩溃隔离（遇 `0xDE` 自杀） |
 | `decimal` | `decimal.roundtrip` | target 自己给出诊断，oracle 拒绝 `roundtrip:` 开头的结果 | 解析/格式化互相矛盾、溢出 |
 
@@ -247,6 +248,7 @@ cli/       参数解析
 
 | 文档 | 内容 |
 |---|---|
+| [docs/使用指南.md](docs/使用指南.md) | 安装、五分钟上手、全部参数、接入自己的 target、FAQ |
 | [docs/验收.md](docs/验收.md) | 能力矩阵、实测数据、一键复现、已知限制 |
 | [docs/开发历程.md](docs/开发历程.md) | 三条决策线、两次度量翻车、AI 使用方式、与开源工作的取舍 |
 | [docs/case-varint.md](docs/case-varint.md) | 一个真 bug 的完整案例：现象 → 复现 → 根因 → 修复 → 回归 |

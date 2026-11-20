@@ -79,3 +79,12 @@ jobs:
       - name: isolation smoke test
         run: |
           moon run cli --target native -- run --target varint --max-execs 2000 --isolate --no-shrink | tail -5
+
+      # Dogfooding: the fuzzer must stay clean on the targets that have no known
+      # findings, including the standard library JSON parser. A regression in the
+      # engine (a false positive, a crash of our own) fails the build here.
+      - name: dogfood (no findings expected)
+        run: |
+          for target in json csvstrict props fixed stdjson; do
+            moon run cli --target native -- run --target "$target" --max-execs 5000 --fail-on-finding
+          done

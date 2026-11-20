@@ -216,6 +216,24 @@ fn props_case() -> Case {
 }
 
 ///|
+fn stdjson_case() -> Case {
+  // Rich, valid documents: the fuzzer needs structures worth mutating, and the
+  // stdlib parser's interesting paths (nesting, unicode escapes, number corners)
+  // are only reachable from documents that already parse.
+  let seeds : Array[Bytes] = [
+    b"{\"a\":1,\"b\":[1,2,3],\"c\":{\"d\":null}}", b"[1,2,3,4,5,6,7,8,9,10]", b"{\"n\":1e999,\"m\":-0.0,\"k\":12345678901234567890}",
+    b"\"\\u0041\\u00e9\\ud83d\\ude00\"", b"[[[[[1]]]]]", b"{\"empty\":{},\"arr\":[],\"bool\":[true,false]}",
+    b"\"x\"", b"{\"s\":\"a\\nb\\t\\\"c\\\"\"}",
+  ]
+  let target = @core.Target::new("stdjson.check", seeds, stdjson_check)
+  Case::new(
+    "stdjson",
+    target,
+    @core.Oracle::Custom("stdjson.consistency", stdjson_consistency),
+  )
+}
+
+///|
 pub fn catalog() -> Array[Case] {
   [
     json_case(),
@@ -233,6 +251,7 @@ pub fn catalog() -> Array[Case] {
     fixed_case(),
     ini_case(),
     props_case(),
+    stdjson_case(),
     boom_case(),
   ]
 }

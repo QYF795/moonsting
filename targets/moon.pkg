@@ -7,4 +7,6 @@
 import {
   "QYF795/moonsting/core",
   "QYF795/moonsting/cov",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
 }

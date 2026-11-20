@@ -68,7 +68,7 @@ test "varint: the pair disagrees beyond 32 bits" {
 ///|
 test "catalog: names, lookup and seeds" {
   let names = @targets.names()
-  assert_eq(names.length(), 16)
+  assert_eq(names.length(), 17)
   assert_true(@targets.find("varint") is Some(_))
   assert_true(@targets.find("nope") is None)
   match @targets.find("json") {
