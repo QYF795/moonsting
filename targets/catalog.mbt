@@ -234,6 +234,20 @@ fn stdjson_case() -> Case {
 }
 
 ///|
+fn stdbigint_case() -> Case {
+  let seeds : Array[Bytes] = [
+    b"0", b"-1", b"123456789", b"-12345678901234567890", b"0x1f", b"0b1011", b"007",
+    b"999999999999999999999999999999",
+  ]
+  let target = @core.Target::new("stdbigint.check", seeds, stdbigint_check)
+  Case::new(
+    "bigint",
+    target,
+    @core.Oracle::Custom("stdbigint.consistency", stdbigint_consistency),
+  )
+}
+
+///|
 pub fn catalog() -> Array[Case] {
   [
     json_case(),
@@ -252,6 +266,7 @@ pub fn catalog() -> Array[Case] {
     ini_case(),
     props_case(),
     stdjson_case(),
+    stdbigint_case(),
     boom_case(),
   ]
 }

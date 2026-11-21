@@ -279,3 +279,47 @@ moon run cli --target wasm-gc -- run --target varint  --max-execs 2000000 --max-
 moon run cli --target wasm-gc -- run --target utf8    --max-execs 2000000 --max-findings 100
 moon run cli --target wasm-gc -- run --target decimal --max-execs 1000000 --max-findings 100
 ```
+
+### 5.7 第二个标准库入口：`@bigint`（2026-11-22）
+
+`stdjson` 之后又接了一个标准库 target：`BigInt::from_string` / `to_string`，判据同样是自洽性——打印出来的必须能解析回同一个值，换个基数打印再解析也必须相等。
+
+**它当场给出了两条关于标准库的具体观察。**
+
+#### 观察一：`from_string` 对某些输入直接 abort，而不是返回错误
+
+```moonbit
+@bigint.BigInt::from_string("0x1f")   // abort: core/bigint/bigint_default.mbt:1289
+@bigint.BigInt::from_string("+5")     // abort: 同一行
+```
+
+`from_string(String, radix? : Int) -> Self` 没有 `raise`，所以"解析失败"只能 abort。这不是我们能判定对错的契约问题，但值得记录：**一个没有错误通道的解析 API，遇到非法输入时会把整个进程带走**。如果 host 是 server 或 CI，这就是一个可用性问题（一个有 `Result` 或 `raise` 的变体会好得多）。
+
+复现：
+
+```bash
+moon run cli --target wasm-gc -- replay --target bigint --hex 2b35     # "+5"
+moon run cli --target wasm-gc -- replay --target bigint --hex 30783166 # "0x1f"
+```
+
+（这两条会以非零码退出，因为进程真的 abort 了。这是观察，不是 target 的 finding——所以 target 把这两类输入挡在门外。）
+
+#### 观察二：约 4,000 位十进制数上，print/parse 往返不再相等
+
+```
+inconsistent:print-parse:4087:4095
+```
+
+输入 4,095 位（前导零 8 个），打印出 4,087 位（长度正确，说明打印没截断），但把打印结果重新解析后与原来的值不相等——**分歧在解析端**。
+
+- 纯净模式（`1` 后面 3,599 个 0）在 3,600 位仍然正常；`2`/`3`/`7`/`9`/`20`/`002` 等重复模式扫到 400 组也没问题。
+- 这一步没有独立实现可比对，所以**我们只能记录现象，不能断言是打印还是解析的 bug**。写在这里而不是当成 finding，是因为无法把它归因到具体实现。
+- 目标上的处理：输入限制到 1,024 位。原因不只是绕开这个边界——十进制解析的代价随位数超线性增长，4,000 位输入会把循环从 ~126,000 exec/s 压到 ~400 exec/s。
+
+#### 结果（输入上限 1,024 位）
+
+| 运行 | 执行数 | 语料 / 签名 | finding |
+|---|---|---|---|
+| wasm-gc 进程内 | 50,000 | 107 / 107 | **0** |
+
+`@bigint` 在"合法十进制数"这个输入空间里，10 万次执行内自洽，没有触发 abort。

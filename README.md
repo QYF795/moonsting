@@ -135,6 +135,7 @@ moon run cli --target wasm-gc -- list
 | `ini` | `ini.comment-invariant` | 追加注释不得改变摘要 | 分区外键值、未闭合分区、空键 |
 | `props` | `props.roundtrip` | 同上（转义必须规范化） | 未转义空格/等号、未知转义、空行 |
 | `stdjson` | `stdjson.consistency` | **标准库** `@json.valid` 与 `@json.parse` 必须一致；`stringify` 的输出必须能再解析 | 标准库自身的 valid/parse 分歧、panic |
+| `bigint` | `stdbigint.consistency` | **标准库** 十进制解析 → 打印 → 再解析必须相等；换基数往返同样 | 长位数上的解析分歧、abort |
 | `boom` | `same` | 什么都不判 | 演示崩溃隔离（遇 `0xDE` 自杀） |
 | `decimal` | `decimal.roundtrip` | target 自己给出诊断，oracle 拒绝 `roundtrip:` 开头的结果 | 解析/格式化互相矛盾、溢出 |
 
