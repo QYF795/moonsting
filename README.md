@@ -250,11 +250,25 @@ cli/       参数解析
 | 文档 | 内容 |
 |---|---|
 | [docs/使用指南.md](docs/使用指南.md) | 安装、五分钟上手、全部参数、接入自己的 target、FAQ |
+| [CHANGELOG.md](CHANGELOG.md) | 每个发布版本改了什么、为什么 |
 | [docs/验收.md](docs/验收.md) | 能力矩阵、实测数据、一键复现、已知限制 |
 | [docs/开发历程.md](docs/开发历程.md) | 三条决策线、两次度量翻车、AI 使用方式、与开源工作的取舍 |
 | [docs/case-varint.md](docs/case-varint.md) | 一个真 bug 的完整案例：现象 → 复现 → 根因 → 修复 → 回归 |
 | [docs/架构.md](docs/架构.md) | 模块划分与每个关键决策的取舍 |
 | [docs/findings.md](docs/findings.md) | 十个 target 的实测结果与性能表 |
+
+## 维护
+
+一条命令回答"这个仓库现在还好吗"：
+
+```bash
+script/healthcheck.sh        # Linux / macOS / Git Bash
+script/healthcheck.ps1       # Windows
+```
+
+它跑：三后端 `check --deny-warn` + 测试、六个"应当 0 finding"的 target 用 `--fail-on-finding` 跑一遍、两个标准库 target（`@json` 50k、`@bigint` 20k）——13 项，暖机后约 10 秒，任何一项失败就以非零码退出。
+
+CI 里对应一个 `healthcheck` job，每周一 03:00 UTC 自动跑，也可以手动触发（`gh workflow run ci.yml`）。上游 `@json` / `@bigint` 一旦变化，这条流水线会先知道。
 
 ## 命名与发布
 

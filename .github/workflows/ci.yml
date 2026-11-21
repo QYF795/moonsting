@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Maintenance mode: a weekly full check, plus a manual trigger so the job can
+  # be verified without waiting for Monday.
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
 
 jobs:
   # Pure-logic jobs: no C toolchain, no child processes. These are the ones that
@@ -88,3 +93,20 @@ jobs:
           for target in json csvstrict props fixed stdjson; do
             moon run cli --target native -- run --target "$target" --max-execs 5000 --fail-on-finding
           done
+
+  # One job that answers "is the repo still good?" — used by the weekly schedule
+  # and by hand. It runs the same script a maintainer runs locally.
+  healthcheck:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: install MoonBit
+        run: curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+
+      - name: add MoonBit to PATH
+        run: echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: healthcheck
+        run: bash script/healthcheck.sh
