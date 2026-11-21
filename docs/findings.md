@@ -239,3 +239,43 @@ moon run cli --target js      -- run --target stdjson --max-execs 200000
 moon run cli --target native  -- run --target stdjson --max-execs 200000 --isolate --no-shrink --jobs 4 --batch-size 2048
 moon run cli --target wasm-gc -- run --target varint  --max-execs 200000
 ```
+
+---
+
+## 6. 长跑饱和实验（2026-11-22）
+
+问题：跑得越久，是否会出现**新的 bug 类别**？三个有代表性的 target 各跑了百万到两百万次。
+
+| target | oracle | 执行数 | 耗时 | exec/s | 签名 | finding | 新类别 |
+|---|---|---|---|---|---|---|---|
+| `varint` | diff | 2,000,000 | 6.9 s | 287,976 | 22 | **3** | 无 |
+| `utf8` | diff | 2,000,000 | 9.6 s | 208,376 | 245 | **0** | — |
+| `decimal` | roundtrip | 1,000,000 | 3.3 s | 305,436 | 28 | **1** | 无 |
+
+### 6.1 结论：会饱和，而且很快
+
+`varint` 的签名从 20,000 次时的 16 个只涨到 2,000,000 次时的 22 个（+37%），而 finding **仍然是那 3 条，全部是同一类**：5 字节输入、第 5 个字节把值推出 32 位。
+
+```
+[mismatch] varint  input=ffffffff34 (5B)   expected v:12348030975 got v:-536870913
+[mismatch] varint  input=ff88ff8822 (5B)   expected v:9145664639  got v:555730047
+[mismatch] varint  input=bbbdffbc5d (5B)   expected v:-4828151425395851346 got v:-2
+```
+
+三条的形状完全一样：`len == 5 && shift == 28`。**去重把"同一个 bug 的无数实例"折成了 3 条**，这正是它该做的事——如果报告 3,000 条同源 finding，人只会关掉它。
+
+`utf8` 更彻底：两百万条输入，两个独立实现零分歧，245 个签名说明路径在扩，但没有一条分歧。这类"对称实现"的 bug 一旦存在，几万次就该出现；两百万次还是 0，基本可以判定这对实现在测试覆盖的输入空间上一致。
+
+### 6.2 为什么这对验收有意义
+
+- **"跑得更久"不是质量指标**：2,000,000 次换来的签名增量是 +37%，bug 类别增量是 0。真正值钱的是**换 oracle**（差分 → 往返 → 自洽性）和**换变异策略**（字节级 → 字段级），不是加执行数。
+- **签名数与 bug 数无关**：`utf8` 有 245 个签名、0 个 bug；`varint` 只有 22 个签名、3 个 bug。语料规模说明"探索面"，不说明"问题密度"。
+- **饱和点是可测的**：同一 seed 下签名数进入平台期，就是该换方向的信号。
+
+复现：
+
+```bash
+moon run cli --target wasm-gc -- run --target varint  --max-execs 2000000 --max-findings 100
+moon run cli --target wasm-gc -- run --target utf8    --max-execs 2000000 --max-findings 100
+moon run cli --target wasm-gc -- run --target decimal --max-execs 1000000 --max-findings 100
+```
