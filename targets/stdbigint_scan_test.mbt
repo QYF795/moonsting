@@ -15,9 +15,9 @@ test "bigint: scan families for a print-parse failure" {
         text = text + pattern
         k = k + 1
       }
-      let value = @bigint.BigInt::from_string(text)
+      let value = @targets.stdbigint_parse(text).unwrap()
       let printed = value.to_string()
-      if !@bigint.BigInt::from_string(printed).equal(value) {
+      if !@targets.stdbigint_parse(printed).unwrap().equal(value) {
         found = pattern +
           " x" +
           n.to_string() +

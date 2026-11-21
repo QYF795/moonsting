@@ -4,6 +4,7 @@
 
 ## 1. 演示用例：varint 解码器的 32 位截断
 
+
 `targets/varint.mbt` 里有一对实现：
 
 - `varint_ref`：LEB128 解码到 `Int64`，正确；
@@ -31,6 +32,7 @@ moon run cli --target wasm-gc -- minimize --target varint --hex 92ffffff0f000102
 
 ## 2. 第二个演示用例：自检 target 抓到的溢出
 
+
 `targets/decimal.mbt` 走"自检 target"路线：body 自己算 `parse → format → parse`，把不一致写成 `roundtrip:` 开头的诊断，oracle 只有一行——拒绝这种诊断。
 
 ```
@@ -47,6 +49,7 @@ findings : 1
 
 ## 3. 没有被"发现"的，同样重要
 
+
 | target | oracle | 执行数 | finding | 结论 |
 |---|---|---|---|---|
 | `json` | 空白不变性（ metamorphic ） | 100,000 | **0** | 手写 JSON 校验器在"前后空白不改变接受/拒绝"这条性质上成立 |
@@ -54,7 +57,8 @@ findings : 1
 
 这一栏是刻意的：一个 fuzzer 只在"确实有 bug"时才报警，比一个天天报警的 fuzzer 有用得多。早期版本曾在这里报出 9 条"violation"，全部是**我自己 oracle 的假阳性**——我最初比较的是完整输出字符串，而错误信息里带位置（`@0` → `@1`），追加空格当然会变。修正为只比较"接受/拒绝"后归零。这个教训写进了 `DEVLOG.md`。
 
-## 3.5 崩溃隔离：让打崩自己的 target 变成一条 finding
+## 4. 崩溃隔离：让打崩自己的 target 变成一条 finding
+
 
 `targets/boom.mbt` 遇到字节 `0xDE` 就 abort，用来验证隔离路径：
 
@@ -71,7 +75,8 @@ findings : 1
 
 不开 `--isolate` 跑同一个 target，fuzzer 自己会被 abort 带走。这不是 bug，是它证明的那件事。
 
-## 3.6 反馈信号：插桩 vs 形状（20,000 次执行）
+## 5. 反馈信号：插桩 vs 形状（20,000 次执行）
+
 
 | target | 反馈 | 语料 | 独立签名 |
 |---|---|---|---|
@@ -83,7 +88,8 @@ findings : 1
 
 `varint` 只有 19 条，因为它的路径空间本来就小（13 个 id、终止位置 0–9），很快就穷尽了。这不是缺陷，是覆盖率反馈在说真话。
 
-## 3.7 全部 8 个 target 的体检结果（各 50,000 次执行，seed 1）
+## 6. 全部 17 个 target 的体检结果（各 50,000 次执行，seed 1）
+
 
 | target | oracle | findings | 独立签名 | 备注 |
 |---|---|---|---|---|
@@ -108,7 +114,8 @@ findings : 1
 
 `base64` 只有 4 个签名，是覆盖反馈在如实说"这个目标的可达路径很少"：随机字节几乎不可能落进 64 字符字母表。要真的探索它，需要结构化的变异器（按字母表生成），而不是更多次随机。
 
-## 4. 性能
+## 7. 性能
+
 
 | target | 后端 | 执行数 | 耗时 | 吞吐 |
 |---|---|---|---|---|
@@ -133,7 +140,8 @@ findings : 1
 - js 后端约慢 3.2 倍，属于预期（wasm-gc 有 AOT 与更紧凑的对象布局）；
 - 这些数字里**没有**进程启动开销——v0.1 是进程内直调，进程池落地后吞吐会下降一档（预计 3–5 万 exec/s），这是拿崩溃隔离必须付的价钱。
 
-## 5. 确定性：三个后端逐字节一致
+## 8. 确定性：三个后端逐字节一致
+
 
 同 seed、同执行数，`wasm-gc` / `js` / `native` 三个后端产出的 JSONL **逐字节相同**（包括 finding 的 exec 序号），语料规模也一致（52 entries / 51 buckets / 46 novel）：
 
@@ -152,7 +160,8 @@ $ diff a.jsonl b.jsonl && diff a.jsonl c.jsonl    # 无输出
 
 为什么这很重要：跨后端差分的工作流要求"同一个 seed 在两个后端跑出同一批输入"，否则 diff 出来的全是噪声。v0.1 证明了这条前提成立——`moon run --json` + `diff` 就是可用的跨后端差分，不需要新代码。
 
-## 6. 测试
+## 9. 测试
+
 
 ```
 $ moon test --target wasm-gc
@@ -163,11 +172,12 @@ Total tests: 48, passed: 48, failed: 0.
 
 ---
 
-## 5. 标准库体检：MoonBit `@json`
+## 10. 标准库体检：MoonBit `@json`
+
 
 > 这是本项目唯一一个"被测对象不是我们自己写的东西"的 target。目的不是再找 bug，而是回答一个可以引用的问题：**MoonBit 标准库的 JSON 解析器扛不扛得住敌意输入。**
 
-### 5.1 方法
+### 10.1 方法
 
 `stdjson` target 把字节解成文本（非 UTF-8 直接判 `err:utf8`），然后用**标准库自洽性**当 oracle：
 
@@ -178,7 +188,7 @@ Total tests: 48, passed: 48, failed: 0.
 
 种子里既有权角（`1e999`、`-0.0`、18 位整数）、也有结构（嵌套对象/数组）、还有转义（`\u0041`、surrogate pair、`\n\t\"`）。
 
-### 5.2 结果
+### 10.2 结果
 
 | 运行 | 执行数 | 语料 / 签名 | finding |
 |---|---|---|---|
@@ -189,25 +199,25 @@ Total tests: 48, passed: 48, failed: 0.
 
 也就是说：**5 万条敌意输入，标准库既没 panic，也没出现 `valid` 与 `parse` 的分歧，`stringify` 的输出也始终能再解析。**
 
-### 5.3 复现
+### 10.3 复现
 
 ```bash
 moon run cli --target wasm-gc -- run --target stdjson --max-execs 50000
 moon run cli --target native -- run --target stdjson --max-execs 20000 --isolate --no-shrink --jobs 2
 ```
 
-### 5.4 这条结论的边界（重要）
+### 10.4 这条结论的边界（重要）
 
 - 它证明的是**自洽性**，不是**规范符合性**。一个"总是接受一切"的解析器完全自洽，但不符合 JSON 规范——那个方向要靠外部参考实现做差分，本项目没有做。
 - 它只覆盖 `parse` / `valid` / `stringify` 三个入口，没有测 `derive(FromJson)` 派生路径。
 - 标准库不能插桩，所以这里的"覆盖率"只有 4 个我们自己的 id；语料靠输出形状（类型 + 尺寸档）区分，68 个签名不代表 68 条标准库内部路径。
 - 一次不崩不等于永远不崩。这里给的是"5 万条 × 两个后端"的证据，不是证明。
 
-### 5.5 为什么仍然值得放进验收材料
+### 10.5 为什么仍然值得放进验收材料
 
 因为它是**可被引用的负面结论**：标准库在敌意输入下没露问题，这件事本身对生态有意义，而且它把一个"感觉应该没问题"的假设变成了一条能重跑的命令。如果以后有人在上游改了 `@json`，把 `--target stdjson` 挂进 CI 就能立刻发现回归。
 
-### 5.6 长时跑记录（2026-11-20）
+### 10.6 长时跑记录（2026-11-20）
 
 一次 60 万次执行的标准库体检，四种配置 + 两个阳性对照。机器：Windows 11 / Ryzen（与全文其它数据同一台）。
 
@@ -242,7 +252,45 @@ moon run cli --target wasm-gc -- run --target varint  --max-execs 200000
 
 ---
 
-## 6. 长跑饱和实验（2026-11-22）
+### 10.7 第二个标准库入口：@bigint（2026-11-22）
+
+`stdjson` 之后又接了一个标准库 target：大整数解析（`@string.parse_bigint`，底层是 `moonbitlang/core/bigint`）。判据仍是自洽性——打印出来的必须能解析回同一个值，换个基数打印再解析也必须相等。
+
+#### 观察一：旧的 `from_string` 对非法输入会 abort，新 API 会 raise
+
+```moonbit
+@bigint.BigInt::from_string("+5")     // abort: core/bigint/bigint_default.mbt:1289
+@bigint.BigInt::from_string("0x1f")   // 同上
+@string.parse_bigint("+5")            // raise, 可以被 catch
+```
+
+`BigInt::from_string` 在最新工具链上已经标记为 deprecated，替代品 `@string.parse_bigint` 带 `raise`，所以非法输入可以干净地报错。**这不是 bug，是标准库已经改对了**——target 因此改用新 API，`+5` / `0x1f` 这类输入从"杀掉进程"变成 `err:parse`，也就可以放进 fuzz 输入空间了。
+
+#### 观察二：约 4,000 位十进制数上，print/parse 往返会不等
+
+```
+inconsistent:print-parse:4087:4095
+```
+
+一次 fuzz 运行抓到的输入：4,095 位、只含 `0` 和 `2` 的合法十进制串；打印出 4,087 位（长度正确，说明打印没截断），重新解析后与原值不相等——分歧在解析端。当前 target 把输入限制在 256 位，所以这个边界**只是记录、没有被继续追**。
+
+#### 一处必须记下来的自我更正
+
+这一节初稿写过"标准库在 1,024 位会 panic"。**那是错的**：panic 来自我自己测试里的 `.unwrap()`——测试用的 LCG 在 Int32 上溢出，产生了带负号的畸形字符串，`parse_bigint` 正确地 raise 成 `None`，`unwrap` 再把它变成 panic。把生成器改成不会溢出的写法后，1,024 位、4,095 位的合法字符串都能正常解析。
+
+教训和 D13 那次一样：**测试脚手架崩了，最先怀疑的应该是脚手架**。标准库背了大约十分钟的黑锅。
+
+#### 结果（输入上限 256 位）
+
+| 运行 | 执行数 | 语料 / 签名 | finding |
+|---|---|---|---|
+| wasm-gc 进程内 | 20,000 | 84 / 84 | **0** |
+| wasm-gc 进程内 | 50,000 | 107 / 107 | **0** |
+
+上限取 256 位的理由有两条，都是测出来的：十进制解析代价随位数超线性增长（4,000 位会把循环从 ~126k exec/s 压到 ~400），以及 256 位（约 850 bit）已经能覆盖多 limb 运算。
+
+## 11. 长跑饱和实验（2026-11-22）
+
 
 问题：跑得越久，是否会出现**新的 bug 类别**？三个有代表性的 target 各跑了百万到两百万次。
 
@@ -252,7 +300,7 @@ moon run cli --target wasm-gc -- run --target varint  --max-execs 200000
 | `utf8` | diff | 2,000,000 | 9.6 s | 208,376 | 245 | **0** | — |
 | `decimal` | roundtrip | 1,000,000 | 3.3 s | 305,436 | 28 | **1** | 无 |
 
-### 6.1 结论：会饱和，而且很快
+### 11.1 结论：会饱和，而且很快
 
 `varint` 的签名从 20,000 次时的 16 个只涨到 2,000,000 次时的 22 个（+37%），而 finding **仍然是那 3 条，全部是同一类**：5 字节输入、第 5 个字节把值推出 32 位。
 
@@ -266,7 +314,7 @@ moon run cli --target wasm-gc -- run --target varint  --max-execs 200000
 
 `utf8` 更彻底：两百万条输入，两个独立实现零分歧，245 个签名说明路径在扩，但没有一条分歧。这类"对称实现"的 bug 一旦存在，几万次就该出现；两百万次还是 0，基本可以判定这对实现在测试覆盖的输入空间上一致。
 
-### 6.2 为什么这对验收有意义
+### 11.2 为什么这对验收有意义
 
 - **"跑得更久"不是质量指标**：2,000,000 次换来的签名增量是 +37%，bug 类别增量是 0。真正值钱的是**换 oracle**（差分 → 往返 → 自洽性）和**换变异策略**（字节级 → 字段级），不是加执行数。
 - **签名数与 bug 数无关**：`utf8` 有 245 个签名、0 个 bug；`varint` 只有 22 个签名、3 个 bug。语料规模说明"探索面"，不说明"问题密度"。
@@ -279,47 +327,3 @@ moon run cli --target wasm-gc -- run --target varint  --max-execs 2000000 --max-
 moon run cli --target wasm-gc -- run --target utf8    --max-execs 2000000 --max-findings 100
 moon run cli --target wasm-gc -- run --target decimal --max-execs 1000000 --max-findings 100
 ```
-
-### 5.7 第二个标准库入口：`@bigint`（2026-11-22）
-
-`stdjson` 之后又接了一个标准库 target：`BigInt::from_string` / `to_string`，判据同样是自洽性——打印出来的必须能解析回同一个值，换个基数打印再解析也必须相等。
-
-**它当场给出了两条关于标准库的具体观察。**
-
-#### 观察一：`from_string` 对某些输入直接 abort，而不是返回错误
-
-```moonbit
-@bigint.BigInt::from_string("0x1f")   // abort: core/bigint/bigint_default.mbt:1289
-@bigint.BigInt::from_string("+5")     // abort: 同一行
-```
-
-`from_string(String, radix? : Int) -> Self` 没有 `raise`，所以"解析失败"只能 abort。这不是我们能判定对错的契约问题，但值得记录：**一个没有错误通道的解析 API，遇到非法输入时会把整个进程带走**。如果 host 是 server 或 CI，这就是一个可用性问题（一个有 `Result` 或 `raise` 的变体会好得多）。
-
-复现：
-
-```bash
-moon run cli --target wasm-gc -- replay --target bigint --hex 2b35     # "+5"
-moon run cli --target wasm-gc -- replay --target bigint --hex 30783166 # "0x1f"
-```
-
-（这两条会以非零码退出，因为进程真的 abort 了。这是观察，不是 target 的 finding——所以 target 把这两类输入挡在门外。）
-
-#### 观察二：约 4,000 位十进制数上，print/parse 往返不再相等
-
-```
-inconsistent:print-parse:4087:4095
-```
-
-输入 4,095 位（前导零 8 个），打印出 4,087 位（长度正确，说明打印没截断），但把打印结果重新解析后与原来的值不相等——**分歧在解析端**。
-
-- 纯净模式（`1` 后面 3,599 个 0）在 3,600 位仍然正常；`2`/`3`/`7`/`9`/`20`/`002` 等重复模式扫到 400 组也没问题。
-- 这一步没有独立实现可比对，所以**我们只能记录现象，不能断言是打印还是解析的 bug**。写在这里而不是当成 finding，是因为无法把它归因到具体实现。
-- 目标上的处理：输入限制到 1,024 位。原因不只是绕开这个边界——十进制解析的代价随位数超线性增长，4,000 位输入会把循环从 ~126,000 exec/s 压到 ~400 exec/s。
-
-#### 结果（输入上限 1,024 位）
-
-| 运行 | 执行数 | 语料 / 签名 | finding |
-|---|---|---|---|
-| wasm-gc 进程内 | 50,000 | 107 / 107 | **0** |
-
-`@bigint` 在"合法十进制数"这个输入空间里，10 万次执行内自洽，没有触发 abort。

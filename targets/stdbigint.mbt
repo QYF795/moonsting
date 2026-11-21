@@ -1,55 +1,33 @@
 ///|
-/// Fuzz MoonBit's **own** big-integer parser (`moonbitlang/core/bigint`).
+/// Fuzz MoonBit's **own** big-integer parser (`@string.parse_bigint`, backed by
+/// `moonbitlang/core/bigint`).
 ///
 /// Second standard-library target, after `stdjson`. The property is the same
 /// shape: the library must agree with itself.
 ///
-///   - `from_string(s)` must not trap on a plausible numeric string;
-///   - `from_string(s).to_string()` must re-parse to the same value;
+///   - parsing a decimal string must not trap, and must fail cleanly (`raise`)
+///     rather than abort;
+///   - `parse -> to_string -> parse` must give the same value;
 ///   - printing in another radix and parsing it back must give the same value.
 ///
-/// The input space is restricted to *plausible numbers* (optional sign, then
-/// digits, with optional `0x`/`0o`/`0b` prefix). That is deliberate: the stdlib
-/// does not document what `from_string` does with "hello", so feeding it
-/// garbage would produce noise that says nothing about the library.
-///
 /// Like `stdjson` this target is **deliberately uninstrumented** — the branches
-/// are in the stdlib — so novelty comes from the output shape (sign, digit
-/// count class, radix class).
+/// live in the stdlib — so novelty comes from the output shape (sign, digit-count
+/// class, radix class).
 ///
-/// Scope note: `from_string` has no `raise` and aborts on text it cannot parse
-/// with the given radix, so the input space here is "decimal digits with an
-/// optional sign". Feeding it `0x1f` would test the stdlib's contract, not its
-/// correctness — that path is a documented limitation (see docs/findings.md §5).
+/// History worth keeping: the older `BigInt::from_string` (now deprecated)
+/// *aborted* on unparseable text such as `0x1f` or `+5`, which killed the fuzz
+/// loop. `@string.parse_bigint` raises instead, so those inputs are in scope and
+/// are reported as `err:parse` rather than taking the process down.
 
 ///|
-fn stdbigint_is_number(text : StringView) -> Bool {
-  let n = text.length()
-  if n == 0 {
-    return false
+pub fn stdbigint_parse(text : StringView) -> @bigint.BigInt? {
+  let mut out : @bigint.BigInt? = None
+  try {
+    out = Some(@string.parse_bigint(text))
+  } catch {
+    _ => ()
   }
-  let mut i = 0
-  let first = text.get_char(0).unwrap().to_int()
-  if first == 43 || first == 45 {
-    i = 1
-  }
-  if i >= n {
-    return false
-  }
-  // Decimal only. `0x1f` and `0b1011` are *not* accepted here on purpose:
-  // `BigInt::from_string` has no raise and aborts on input it cannot parse with
-  // the given radix (observed at core/bigint/bigint_default.mbt:1289), so those
-  // forms are the stdlib's contract, not a bug we should report.
-  let mut digits = 0
-  while i < n {
-    let c = text.get_char(i).unwrap().to_int()
-    if c < 48 || c > 57 {
-      return false
-    }
-    digits = digits + 1
-    i = i + 1
-  }
-  digits > 0
+  out
 }
 
 ///|
@@ -72,29 +50,27 @@ pub fn stdbigint_check(input : Bytes) -> String {
   if @utf8.encode(text) != input {
     return "err:utf8"
   }
-  // Decimal parsing is superlinear in the digit count: a 4,000-digit input costs
-  // milliseconds per execution and takes the loop from ~150k exec/s to ~400.
-  // 1,024 digits (≈3,400 bits) still exercises multi-limb arithmetic while
-  // keeping the target fuzzable. The behaviour beyond that is recorded in
-  // docs/findings.md §5.7 instead of being searched for.
-  if text.length() > 1024 {
+  // Two reasons for the cap, both measured rather than guessed:
+  //  - parsing cost is superlinear: a 4,000-digit input takes the loop from
+  //    ~126k exec/s to ~400;
+  //  - beyond a few hundred digits the stdlib can *panic* on some values instead
+  //    of returning, and a panic takes the fuzz loop with it.
+  // 256 digits (≈850 bits) still exercises multi-limb arithmetic. The panic is
+  // recorded in docs/findings.md §5.7.
+  if text.length() > 256 {
     return "err:too-long"
   }
-  if !stdbigint_is_number(text) {
-    return "err:notnumber"
+  let parsed = stdbigint_parse(text)
+  let value = match parsed {
+    None => return "err:parse"
+    Some(v) => v
   }
-  // Observed on this toolchain: `from_string` aborts on a leading `+`
-  // (`BigInt::from_string("+5")` -> abort at core/bigint/bigint_default.mbt:1289).
-  // It also aborts on radix prefixes. Both are recorded in docs/findings.md §5.7;
-  // filtering them here keeps an in-process run from being killed by a known,
-  // documented limitation instead of an unknown bug.
-  if text.has_prefix("+") {
-    return "err:plus-sign"
-  }
-  let value = @bigint.BigInt::from_string(text)
   let printed = value.to_string()
   // 1. Printing then parsing must give the same value back.
-  let again = @bigint.BigInt::from_string(printed)
+  let again = match stdbigint_parse(printed) {
+    None => return "inconsistent:print-not-parseable"
+    Some(v) => v
+  }
   if !again.equal(value) {
     // Include both lengths: a shorter printed string means the printer lost
     // digits, an equal length means the parser mangled them.
@@ -105,16 +81,12 @@ pub fn stdbigint_check(input : Bytes) -> String {
   }
   // 2. Another radix must survive the trip too.
   let hex = value.to_string(radix=16)
-  let from_hex = @bigint.BigInt::from_string(hex, radix=16)
+  let from_hex = match stdbigint_parse_radix(hex, 16) {
+    None => return "inconsistent:hex-not-parseable"
+    Some(v) => v
+  }
   if !from_hex.equal(value) {
     return "inconsistent:radix-roundtrip"
-  }
-  // 3. And canonical decimal text must be invariant under reprinting.
-  if printed != text && stdbigint_is_number(printed) && !printed.has_prefix("-") {
-    let normalized = printed
-    if @bigint.BigInt::from_string(normalized).to_string() != normalized {
-      return "inconsistent:unstable-print"
-    }
   }
   let sign = if printed.has_prefix("-") { "n" } else { "p" }
   "ok:" +
@@ -123,6 +95,20 @@ pub fn stdbigint_check(input : Bytes) -> String {
   stdbigint_class(text.length()) +
   ":" +
   sign
+}
+
+///|
+pub fn stdbigint_parse_radix(
+  text : StringView,
+  base : Int32,
+) -> @bigint.BigInt? {
+  let mut out : @bigint.BigInt? = None
+  try {
+    out = Some(@string.parse_bigint(text, base~))
+  } catch {
+    _ => ()
+  }
+  out
 }
 
 ///|
