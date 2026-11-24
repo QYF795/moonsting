@@ -4,3 +4,5 @@ _build/
 *.html
 .moonsting-*
 .corpus*
+.demo-corpus/
+.corpus-min/
