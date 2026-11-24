@@ -1,6 +1,6 @@
 name = "QYF795/moonsting"
 
-version = "0.5.2"
+version = "0.6.0"
 
 preferred_target = "wasm-gc"
 

@@ -258,6 +258,24 @@ cli/       参数解析
 | [docs/架构.md](docs/架构.md) | 模块划分与每个关键决策的取舍 |
 | [docs/findings.md](docs/findings.md) | 十个 target 的实测结果与性能表 |
 
+## 语料最小化（cmin）
+
+跑久了语料库只增不减：每个曾经触达新路径的输入都会留下，哪怕后来被别的输入覆盖。分享、review、入库都很痛苦。
+
+`cmin` 做一次集合覆盖：保留**仍能覆盖全部 id 的最小子集**，同分时优先更短的输入。
+
+```bash
+moonsting run  --target protobuf --max-execs 20000 --corpus-dir .corpus
+moonsting cmin --target protobuf --corpus-dir .corpus --out .corpus-min
+
+corpus   : 148 inputs
+coverage : 16 of 16 ids
+kept     : 10 inputs (10 files written)
+out      : .corpus-min
+```
+
+148 → 10，覆盖不变。没有插桩的 target 会退回"输出形状"，仍然保留每个不同形状的一个代表。文件读写需要 native 后端（wasm-gc 上会明确提示而不是静默失败）。
+
 ## 维护
 
 一条命令回答"这个仓库现在还好吗"：

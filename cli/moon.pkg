@@ -4,6 +4,7 @@ import {
   "QYF795/moonsting/core",
   "QYF795/moonsting/engine",
   "QYF795/moonsting/report",
+  "QYF795/moonsting/proc",
   "QYF795/moonsting/shrink",
   "QYF795/moonsting/targets",
   "moonbitlang/core/env",

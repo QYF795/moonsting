@@ -6,7 +6,7 @@
 /// beyond the target's 256-digit cap on purpose; that cap exists for speed, not
 /// because the library is known to be fine up there.
 test "bigint: large-value round trip (issue verification)" {
-  let sizes : Array[Int] = [300, 600, 1200, 2000, 3000]
+  let sizes : Array[Int32] = [300, 600, 1200, 2000, 3000]
   let mut failures = ""
   let mut s = 0
   while s < sizes.length() {

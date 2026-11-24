@@ -124,8 +124,9 @@ fn help() -> String {
   sb.write_string("  moonsting list\n")
   sb.write_string("  moonsting replay --target NAME --hex HEX\n")
   sb.write_string("  moonsting minimize --target NAME --hex HEX\n")
+  sb.write_string("  moonsting worker --target NAME --batch FILE --out FILE\n")
   sb.write_string(
-    "  moonsting worker --target NAME --batch FILE --out FILE\n\n",
+    "  moonsting cmin --target NAME --corpus-dir DIR [--out DIR] [--dry-run]\n\n",
   )
   sb.write_string(
     "run flags: --isolate runs each batch in a child process, so a\n",
@@ -213,7 +214,12 @@ fn cmd_run(args : Array[String], exe : String) -> Unit {
         Some(d) => d
         None => ""
       }
-      let loaded = if corpus_dir.length() > 0 {
+      if corpus_dir.length() > 0 && !@proc.supported() {
+        println(
+          "note     : --corpus-dir needs the native backend; ignored on this target",
+        )
+      }
+      let loaded = if corpus_dir.length() > 0 && @proc.supported() {
         @engine.load_corpus(corpus_dir, int_flag(args, "--corpus-max", 4096))
       } else {
         []
@@ -337,6 +343,97 @@ fn cmd_minimize(args : Array[String]) -> Unit {
 }
 
 ///|
+/// `cmin`: keep the smallest subset of a corpus that still reaches every id.
+fn cmd_cmin(args : Array[String]) -> Unit {
+  match resolve_target(args) {
+    None => ()
+    Some(case) => {
+      let dir = match flag_value(args, "--corpus-dir") {
+        Some(d) => d
+        None => ""
+      }
+      if dir.length() == 0 {
+        println("cmin needs --corpus-dir DIR")
+        return
+      }
+      if !@proc.supported() {
+        println("cmin reads and writes files, which needs the native backend:")
+        println(
+          "  moon run cli --target native -- cmin --target ... --corpus-dir ...",
+        )
+        return
+      }
+      let inputs = @engine.load_corpus(
+        dir,
+        int_flag(args, "--corpus-max", 4096),
+      )
+      if inputs.length() == 0 {
+        println("corpus   : 0 inputs in " + dir)
+        return
+      }
+      let result = @engine.cmin(case, inputs)
+      let kept : Array[Bytes] = []
+      let mut i = 0
+      while i < result.kept.length() {
+        kept.push(inputs[result.kept[i]])
+        i = i + 1
+      }
+      let out = match flag_value(args, "--out") {
+        Some(o) => o
+        None => ".corpus-min"
+      }
+      if has_flag(args, "--dry-run") {
+        println("corpus   : " + inputs.length().to_string() + " inputs")
+        println(
+          "coverage : " +
+          result.ids_covered.to_string() +
+          " of " +
+          result.ids_total.to_string() +
+          " ids",
+        )
+        println(
+          "kept     : " + result.kept.length().to_string() + " inputs (dry run)",
+        )
+        return
+      }
+      let written = @engine.save_inputs(
+        out,
+        kept,
+        int_flag(args, "--corpus-max", 4096),
+      )
+      if has_flag(args, "--json") {
+        println(
+          @report.cmin_line(
+            inputs.length(),
+            result.kept.length(),
+            result.ids_covered,
+            result.ids_total,
+            out,
+          ),
+        )
+      } else {
+        println("corpus   : " + inputs.length().to_string() + " inputs")
+        println(
+          "coverage : " +
+          result.ids_covered.to_string() +
+          " of " +
+          result.ids_total.to_string() +
+          " ids",
+        )
+        println(
+          "kept     : " +
+          result.kept.length().to_string() +
+          " inputs (" +
+          written.to_string() +
+          " files written)",
+        )
+        println("out      : " + out)
+      }
+    }
+  }
+}
+
+///|
 /// Locate the subcommand. `moon run` hands the program its own path as argv[0]
 /// on wasm-gc but as argv[0..1] under node (`node cli.js ...`), so the command
 /// is found by name rather than by position.
@@ -354,6 +451,9 @@ fn is_command(a : String) -> Bool {
     return true
   }
   if a == "worker" {
+    return true
+  }
+  if a == "cmin" {
     return true
   }
   if a == "help" {
@@ -411,6 +511,8 @@ fn main {
     cmd_minimize(rest)
   } else if cmd == "worker" {
     cmd_worker(rest)
+  } else if cmd == "cmin" {
+    cmd_cmin(rest)
   } else {
     println(help())
   }

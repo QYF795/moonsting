@@ -303,3 +303,25 @@ pub fn coverage_report(ids : Array[Int32]) -> String {
   }
   sb.to_string()
 }
+
+///|
+/// One JSON line describing a `cmin` run, for machines.
+pub fn cmin_line(
+  before : Int32,
+  kept : Int32,
+  ids_covered : Int32,
+  ids_total : Int32,
+  out : String,
+) -> String {
+  "{\"kind\":\"cmin\",\"before\":" +
+  before.to_string() +
+  ",\"kept\":" +
+  kept.to_string() +
+  ",\"ids\":" +
+  ids_covered.to_string() +
+  ",\"ids_total\":" +
+  ids_total.to_string() +
+  ",\"out\":\"" +
+  out +
+  "\"}"
+}

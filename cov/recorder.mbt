@@ -386,3 +386,17 @@ pub fn undeclared_hits(ids : Array[Int32]) -> Array[Int32] {
   }
   sorted_seen_from(out)
 }
+
+///|
+/// The ids hit by the *current* execution (what `reset` clears). Use this when
+/// per-execution coverage is needed; `seen_ids` is the cumulative set and only
+/// grows, which is the wrong thing for set-cover work like `cmin`.
+pub fn current_ids() -> Array[Int32] {
+  let out : Array[Int32] = []
+  let mut i = 0
+  while i < hits_.length() {
+    out.push(hits_[i])
+    i = i + 1
+  }
+  out
+}
