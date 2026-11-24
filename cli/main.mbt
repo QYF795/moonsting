@@ -126,7 +126,11 @@ fn help() -> String {
   sb.write_string("  moonsting minimize --target NAME --hex HEX\n")
   sb.write_string("  moonsting worker --target NAME --batch FILE --out FILE\n")
   sb.write_string(
-    "  moonsting cmin --target NAME --corpus-dir DIR [--out DIR] [--dry-run]\n\n",
+    "  moonsting cmin --target NAME --corpus-dir DIR [--out DIR] [--dry-run]\n",
+  )
+  sb.write_string("  moonsting exec --target NAME --hex HEX\n")
+  sb.write_string(
+    "  moonsting cross --target NAME [--max-execs N] [--other WASM]\n\n",
   )
   sb.write_string(
     "run flags: --isolate runs each batch in a child process, so a\n",
@@ -343,6 +347,122 @@ fn cmd_minimize(args : Array[String]) -> Unit {
 }
 
 ///|
+/// `exec`: run one input and print the target output. Exists so that a build of
+/// this CLI on another backend can act as the reference side of `cross`.
+fn cmd_exec(args : Array[String]) -> Unit {
+  match resolve_target(args) {
+    None => ()
+    Some(case) => {
+      let hex = match flag_value(args, "--hex") {
+        Some(h) => h
+        None => ""
+      }
+      if hex.length() == 0 {
+        println("exec needs --hex HEX")
+        return
+      }
+      // `-` is the empty input: an empty argument would be dropped by the shell.
+      let input = if hex == "-" { b"" } else { @core.parse_hex(hex) }
+      println(case.target().run(input))
+    }
+  }
+}
+
+///|
+/// The inputs `cross` feeds both sides: the target's seeds, then mutations of
+/// them, so the comparison is not limited to hand-written cases.
+fn cross_inputs(
+  case : @targets.Case,
+  count : Int32,
+  seed : Int32,
+) -> Array[Bytes] {
+  let seeds = case.target().seeds()
+  let out : Array[Bytes] = []
+  if seeds.length() == 0 {
+    return out
+  }
+  let mutator = @mutate.Mutator::new(seed, @mutate.Dictionary::generic(), 256)
+  while out.length() < count {
+    let index = out.length() % seeds.length()
+    if out.length() < seeds.length() {
+      out.push(seeds[index])
+    } else {
+      out.push(mutator.mutate(seeds[index], seeds))
+    }
+  }
+  out
+}
+
+///|
+/// Run one input through another build of this CLI and return its stdout.
+fn run_other(wasm : String, name : String, input : Bytes) -> String {
+  let out = @proc.temp_path("cross")
+  let hex = if input.length() == 0 { "-" } else { @core.hex_all(input) }
+  let script = "moonrun " +
+    @proc.arg(wasm) +
+    " exec --target " +
+    name +
+    " --hex " +
+    hex +
+    " > " +
+    @proc.shell_path(out) +
+    " 2>&1"
+  ignore(@proc.run_command(script))
+  let text = @utf8.decode_lossy(@proc.read_file(out))
+  @proc.remove_file(out)
+  @core.trim_end(text)
+}
+
+///|
+/// `cross`: the same inputs through two backends; any disagreement is a bug.
+fn cmd_cross(args : Array[String]) -> Unit {
+  match resolve_target(args) {
+    None => ()
+    Some(case) => {
+      if !@proc.supported() {
+        println("cross needs the native backend: it spawns the other build")
+        return
+      }
+      let other = match flag_value(args, "--other") {
+        Some(p) => p
+        None => "_build/wasm-gc/debug/build/cli/cli.wasm"
+      }
+      if !@proc.file_present(other) {
+        println("other build not found: " + other)
+        println("build it first: moon build --target wasm-gc")
+        return
+      }
+      let count = int_flag(args, "--max-execs", 100)
+      let inputs = cross_inputs(case, count, int_flag(args, "--seed", 0))
+      let mine : Array[String] = []
+      let theirs : Array[String] = []
+      let mut i = 0
+      while i < inputs.length() {
+        mine.push(case.target().run(inputs[i]))
+        theirs.push(run_other(other, case.name(), inputs[i]))
+        i = i + 1
+      }
+      let result = @engine.cross_compare(case.name(), inputs, mine, theirs)
+      println("target   : " + case.name())
+      println(
+        "compared : " + result.compared.to_string() + " inputs against " + other,
+      )
+      println("mismatch : " + result.mismatches.length().to_string())
+      if result.skipped > 0 {
+        println(
+          "skipped  : " +
+          result.skipped.to_string() +
+          " (the other side produced nothing)",
+        )
+      }
+      if result.mismatches.length() > 0 {
+        println(@core.trim_end(@engine.cross_lines(result)))
+      }
+    }
+  }
+}
+
+///|
 /// `cmin`: keep the smallest subset of a corpus that still reaches every id.
 fn cmd_cmin(args : Array[String]) -> Unit {
   match resolve_target(args) {
@@ -456,6 +576,12 @@ fn is_command(a : String) -> Bool {
   if a == "cmin" {
     return true
   }
+  if a == "exec" {
+    return true
+  }
+  if a == "cross" {
+    return true
+  }
   if a == "help" {
     return true
   }
@@ -513,6 +639,10 @@ fn main {
     cmd_worker(rest)
   } else if cmd == "cmin" {
     cmd_cmin(rest)
+  } else if cmd == "exec" {
+    cmd_exec(rest)
+  } else if cmd == "cross" {
+    cmd_cross(rest)
   } else {
     println(help())
   }

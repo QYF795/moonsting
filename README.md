@@ -258,6 +258,23 @@ cli/       参数解析
 | [docs/架构.md](docs/架构.md) | 模块划分与每个关键决策的取舍 |
 | [docs/findings.md](docs/findings.md) | 十个 target 的实测结果与性能表 |
 
+## 跨后端差分（cross）
+
+项目的第一条论点是"同一份代码在 wasm-gc / js / native 上行为应当一致，不一致就是 bug"。这条最该被自动检查，而 libFuzzer / AFL 天生做不到。
+
+```bash
+moon build --target wasm-gc                     # cross 需要另一后端的构建
+moonsting cross --target utf8 --max-execs 120
+
+target   : utf8
+compared : 120 inputs against _build/wasm-gc/debug/build/cli/cli.wasm
+mismatch : 0
+```
+
+做法：同一批输入（种子 + 变异），本进程跑一遍，另一后端用 `moonrun <wasm> exec --hex ...` 跑一遍，逐字节比输出。`exec` 子命令就是为它存在的。
+
+实测（2026-11-24）：`utf8`、`protobuf`、`varint` 各 120 条输入，**0 处分歧**。灵敏度也验证过——第一次跑报的 3 处分歧来自一个**过期的 wasm 构建**（改了 `exec` 的空输入约定但没重编 wasm），修好构建后归零：说明它确实能抓到两个构建之间的行为差异。
+
 ## 语料最小化（cmin）
 
 跑久了语料库只增不减：每个曾经触达新路径的输入都会留下，哪怕后来被别的输入覆盖。分享、review、入库都很痛苦。

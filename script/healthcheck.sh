@@ -50,6 +50,12 @@ for target in json csvstrict props fixed stdjson bigint; do
     moon run cli --target wasm-gc -- run --target "$target" --max-execs 3000 --fail-on-finding
 done
 
+# Cross-backend: the same inputs through native and wasm-gc must agree. Needs
+# both builds, so it runs after the native build above.
+check "build wasm-gc"  moon build --target wasm-gc
+check "cross-backend utf8" \
+  moon run cli --target native -- cross --target utf8 --max-execs 40
+
 # The two standard-library targets, at a size that would surface a regression in
 # `@json` or `@bigint` quickly.
 check "stdlib @json 50k"   moon run cli --target wasm-gc -- run --target stdjson --max-execs 50000
