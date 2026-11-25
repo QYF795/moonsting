@@ -1,14 +1,18 @@
-# 给上游的两条材料
+# 给上游的材料
 
-第 1 条可以直接粘贴成 issue。第 2 条**没有提**，原因写在下面——留在这里是为了说明"为什么没提"，也免得以后有人重复劳动。
+**已提交（2026-11-25）**：[moonbitlang/moon#2647](https://github.com/moonbitlang/moon/issues/2647) — *Expose coverage output for instrumented binaries, not only under `moon test`*，OPEN。
+
+第 2 条**没有提**，原因写在下面——留在这里是为了说明"为什么没提"，也免得以后有人重复劳动。
 
 ---
 
-## 1. 可以直接提的 issue
+## 1. 已提交的 issue（#2647）
+
+状态：OPEN，2026-11-25 由 QYF795 提交。提交时用的是上游仓库的 Feature Request 模板（Motivation / Detailed Description / Related Issues / Checklist）。
 
 **标题**：Expose coverage output for instrumented binaries, not just `moon test`
 
-**正文（英文，可直接粘贴）**：
+**正文**：
 
 ````markdown
 ### Summary
@@ -77,7 +81,7 @@ A per-run flush (append, or overwrite-per-PID) would be enough; the format does
 not need to change.
 ````
 
-**提之前要确认的**：环境里 `moon version --all` 的版本号，以及这条在你的机器上仍然可复现（上面的步骤就是实测过的）。
+**验证记录**：复现步骤在 `moon 0.1.20261012 (748b63c)` / `moonc v0.10.15+943464bfa` 上实测；`moon run` 与直接执行二进制都试过，两种方式都不产出文件，而 `moon test --enable-coverage` 会产出 `_build/moonbit_coverage_*.txt`。
 
 ---
 

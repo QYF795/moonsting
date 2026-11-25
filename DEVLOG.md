@@ -753,3 +753,22 @@ mismatch : 0
 - 每条约 100 ms，主要是进程启动；120 条约 15 秒，进 healthcheck 用 40 条。
 
 **为什么值得做**：这是本项目和 libFuzzer / AFL 最本质的区别——C 生态里"同一份代码在两个后端行为不同"几乎不存在，而 MoonBit 有四个后端。一个只能发现"崩溃"和"结果错"的工具是通用工具；能发现"后端分歧"的工具才和这个生态绑定。
+---
+
+### D26 · 11/25 · 把覆盖率那条 issue 真的提给上游
+
+草稿在 `docs/upstream-issues.md` 里放了两天，今天提了：[moonbitlang/moon#2647](https://github.com/moonbitlang/moon/issues/2647)。
+
+**提之前做的三件事**
+
+1. **找对仓库**：`--enable-coverage` 属于构建系统，所以是 `moonbitlang/moon`，不是 `moonbitlang/core`。
+2. **查重**：搜了 `coverage` / `coverage binary`，只有 #413（自动加 coverage 依赖）比较接近但不是同一件事。
+3. **用他们的模板**：上游有 Bug report / Feature Request 两个模板，这条是功能请求，按 Motivation / Detailed Description / Related Issues / Checklist 写。
+
+**内容取舍**
+
+- 给了三种可接受的解法（退出时 flush / 文档化的钩子或环境变量 / 构建期直接报错），而不是指定一种实现——维护者比我更清楚哪种成本低。
+- 写了"`moon build --enable-coverage` 静默成功"这一点：这是最误导人的地方，看起来数据一定在某个地方。
+- 没提 bigint 那条（复现不了，理由在 `docs/upstream-issues.md` 第 2 节）。
+
+**为什么值得花这半小时**：验收讲"与 MoonBit 生态的相关性"。一个只在自己仓库里跑的工具，相关性是自证的；一条被上游看到的具体反馈，相关性是可验证的。而且这条反馈不是"你们有个 bug"，是"这里有块数据，接出来对下游有用"——对维护者来说成本低、收益明确。

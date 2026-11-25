@@ -251,7 +251,7 @@ cli/       参数解析
 |---|---|
 | [docs/使用指南.md](docs/使用指南.md) | 安装、五分钟上手、全部参数、接入自己的 target、FAQ |
 | [CHANGELOG.md](CHANGELOG.md) | 每个发布版本改了什么、为什么 |
-| [docs/upstream-issues.md](docs/upstream-issues.md) | 给上游的 issue 草稿（覆盖率产物），以及一条"为什么没提"的记录 |
+| [docs/upstream-issues.md](docs/upstream-issues.md) | 已提交给上游的 issue [moonbitlang/moon#2647](https://github.com/moonbitlang/moon/issues/2647)，以及一条"为什么没提"的记录 |
 | [docs/验收.md](docs/验收.md) | 能力矩阵、实测数据、一键复现、已知限制 |
 | [docs/开发历程.md](docs/开发历程.md) | 三条决策线、两次度量翻车、AI 使用方式、与开源工作的取舍 |
 | [docs/case-varint.md](docs/case-varint.md) | 一个真 bug 的完整案例：现象 → 复现 → 根因 → 修复 → 回归 |
