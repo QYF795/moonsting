@@ -19,6 +19,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # GitHub's macOS arm64 runners are capacity constrained and sometimes cannot
+    # be acquired at all ("job was not acquired by Runner of type hosted", after
+    # 15 minutes). That is an infrastructure failure, not a code failure, so the
+    # macOS leg is advisory: its result is still visible in the job list, but it
+    # does not turn the workflow red. Local verification on macOS-shaped code
+    # (the same commands) is what the acceptance doc points at.
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -63,6 +70,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     steps:
       - uses: actions/checkout@v5
 
