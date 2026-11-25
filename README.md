@@ -224,26 +224,26 @@ findings : 1
 
 ```
 core/      Rng / Bytes 工具 / Target / Oracle / Config / Stats / Finding
-mutate/    Dictionary + 变异算子
+mutate/    havoc / 字典 / splice / 边界 / 按形状分派的结构化变异
 corpus/    去重语料库 + 锦标赛选择
-cov/       Buckets（形状反馈）+ EdgeSet（覆盖率产物解析）
+cov/       插桩记录器 + 形状反馈 + 覆盖率产物解析
 shrink/    ddmin
-targets/   json.lite / csv.lite / varint 差分对
-engine/    Session：循环、判定、语料、finding
-report/    text / jsonl / html / 回归测试
+targets/   18 个 target（17 个带 oracle，含标准库 @json / @bigint）
+engine/    Session：循环、判定、语料、隔离、并行、cmin、cross
+report/    text / jsonl / html / 回归测试 / 覆盖率报告
 api/       对外入口（embedder 用）
 cli/       参数解析
 ```
 
-2,632 行实现 + 464 行测试，10 个包，48 个测试全绿；`moon check --deny-warn` 干净。
+8,624 行实现 + 1,661 行测试，11 个包，145（native）/ 126（wasm-gc）/ 126（js）个测试全绿；`moon check --deny-warn` 三后端干净。
 
 ## 限制与下一步
 
 1. **插桩是手动的**：没有自动插桩，写 target 的人要自己在分支上放 `@cov.hit(id)`。没放就静默回退到形状反馈——能跑，但弱。
 2. **语料目录遇缺口截断**：`corpus-0007.hex` 缺失时只加载 1–6。好处是文件布局可以手工修（删尾巴、留前缀），代价是不能有洞。
-3. **没有"哪些 id 从未命中"的报告**：插桩覆盖率本可以反过来指导插桩点，这一层还没做。
-4. **并行是亚线性的**：`--jobs` 要配 `--batch-size`，组合表见上；单 job 时仍是单核。
-5. **更多 target**（P2）：把生态里测试薄的解析器（ARFF / protobuf / parquet 编码）接成 case。
+3. **并行是亚线性的**：`--jobs` 要配 `--batch-size`，组合表见上；单 job 时仍是单核。
+4. **隔离模式的崩溃用例不做 shrink**：缩它要对每个候选起进程；非崩溃用例可以。
+5. **跨后端差分只比较目标输出**：不是内存布局或运行时行为的全面比对，且需要两侧都有构建。
 
 ## 文档
 
@@ -302,7 +302,7 @@ script/healthcheck.sh        # Linux / macOS / Git Bash
 script/healthcheck.ps1       # Windows
 ```
 
-它跑：三后端 `check --deny-warn` + 测试、六个"应当 0 finding"的 target 用 `--fail-on-finding` 跑一遍、两个标准库 target（`@json` 50k、`@bigint` 20k）——13 项，暖机后约 10 秒，任何一项失败就以非零码退出。
+它跑：三后端 `check --deny-warn` + 测试、六个"应当 0 finding"的 target 用 `--fail-on-finding` 跑一遍、两个标准库 target（`@json` 50k、`@bigint` 20k）——15 项，暖机后约 15 秒，任何一项失败就以非零码退出。
 
 CI 里对应一个 `healthcheck` job，每周一 03:00 UTC 自动跑，也可以手动触发（`gh workflow run ci.yml`）。上游 `@json` / `@bigint` 一旦变化，这条流水线会先知道。
 
